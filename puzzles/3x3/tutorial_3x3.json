@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "id": "tutorial_3x3",
+  "size": 3,
+  "initial_revealed": [
+    "A1"
+  ],
+  "cards": [
+    {
+      "cell": "A1",
+      "name": "Alice",
+      "profession": "Detective",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "id": "c-A1",
+        "kind": "FACT",
+        "cell": "B1",
+        "status": "INNOCENT"
+      }
+    },
+    {
+      "cell": "B1",
+      "name": "Bao",
+      "profession": "Guard",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "id": "c-B1",
+        "kind": "SAME",
+        "cells": [
+          "B1",
+          "C1"
+        ]
+      }
+    },
+    {
+      "cell": "C1",
+      "name": "Chi",
+      "profession": "Artist",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "id": "c-C1",
+        "kind": "DIFFERENT",
+        "cells": [
+          "C1",
+          "A2"
+        ]
+      }
+    },
+    {
+      "cell": "A2",
+      "name": "Dung",
+      "profession": "Engineer",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "id": "c-A2",
+        "kind": "FACT",
+        "cell": "B2",
+        "status": "INNOCENT"
+      }
+    },
+    {
+      "cell": "B2",
+      "name": "Emi",
+      "profession": "Clerk",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "id": "c-B2",
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "row",
+          "index": 2
+        }
+      }
+    },
+    {
+      "cell": "C2",
+      "name": "Finn",
+      "profession": "Doctor",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "id": "c-C2",
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "column",
+          "index": "A"
+        }
+      }
+    },
+    {
+      "cell": "A3",
+      "name": "Gia",
+      "profession": "Teacher",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "id": "c-A3",
+        "kind": "DIFFERENT",
+        "cells": [
+          "A3",
+          "B3"
+        ]
+      }
+    },
+    {
+      "cell": "B3",
+      "name": "Hanh",
+      "profession": "Farmer",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "id": "c-B3",
+        "kind": "AT_MOST",
+        "k": 1,
+        "region": {
+          "type": "row",
+          "index": 3
+        }
+      }
+    },
+    {
+      "cell": "C3",
+      "name": "Ivy",
+      "profession": "Writer",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "id": "c-C3",
+        "kind": "AT_LEAST",
+        "k": 1,
+        "region": {
+          "type": "row",
+          "index": 1
+        }
+      }
+    }
+  ]
+}
