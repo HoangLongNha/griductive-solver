@@ -181,3 +181,13 @@ Only VT1 edits shared models and `CONTRACTS.md`; impacted roles approve contract
 - Exact policy for invalid puzzle vs a valid unique but no-next-move puzzle (suggest loader accepts diagnostic fixtures in test-only mode, while playable puzzles require uniqueness and no-guess progression).
 - Exact time-limit threshold for stress cases and UI cancellation semantics.
 - Whether to preserve deterministic canonical encoding without auxiliary variables for all small cardinalities (suggest yes).
+
+## 10. Task 1.1 implementation and v0.2 review
+
+Source: https://app.notion.com/p/40f9cc1ed390818a9574d0006d788489
+The full integration proposal is preserved in CONTRACTS_V02_PROPOSAL.md.
+Baseline shared models are implemented in src/griductive/models.py. Clue.data is a recursively frozen Mapping: lists become tuples, mappings become read-only mappings, and caller data is detached. Face-down PublicCard rejects non-null status/clue. Engine snapshot independence still requires integration tests in task 1.2.
+
+Mapping helpers cell_to_var(cell, size) and var_to_cell(var, size) use row-major IDs, reject invalid cells/auxiliary IDs, and support sizes 1..26 (single-letter columns). These helper signatures and stricter immutable Clue data need consumer approval. SolverTimeout and SolverCancelled represent unfinished computation, never UNSAT. VerdictOracle and PublicGamePort support fake implementations.
+
+ControllerPort, HintResult, SATQuery, DeductionStep, AppEvent and DeductionTrace remain proposals: exact outcome/payload/totals types require agreement. No Controller, Encoder, DPLL or Agent implementation is included. All five role approvals remain pending; do not treat this baseline as a ratified contract.

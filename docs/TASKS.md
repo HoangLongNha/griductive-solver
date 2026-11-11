@@ -162,3 +162,9 @@ This is a plan, not actual progress. Dependencies listed here are **integration 
 - **Có thể bắt đầu ngay:** dùng đúng contracts, fake ports và fixture trước khi phụ thuộc merge
 - **Test IDs:** DEMO-01, DEMO-02, DEMO-03, DEMO-04
 
+
+## Task 1.1 handoff (v0.2)
+
+Branch: feat/1.1-repo-contracts. Shared baseline models, mapping, privacy guards, package configuration and PR pytest workflow are implemented. See tests/test_models.py and docs/CONTRACTS_V02_PROPOSAL.md. Local validation: python -m pytest -q, 22 passed. CT-03 requires a real GitHub Actions run; role approvals, independent review and merge remain pending.
+
+Integration milestones from Notion v0.2: 1.3a is one real Load/public KB/DPLL/verdict/reveal/GUI loop at D10; 1.3b is full integration at D16. Dataset task 5.3a must add mixed counting 4x4, neighbors/explicit regions and diagnostic STUCK cases; current FACT chains alone do not establish counting coverage. Gameplay metrics include actual Engine rechecks, with validation/uniqueness reported separately. These are future tasks, not delivered functionality in 1.1.
