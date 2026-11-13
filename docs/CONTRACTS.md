@@ -14,7 +14,7 @@ The Engine's `submit_verdict` delegates logical provability to a `VerdictOracle`
 ```python
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal, Protocol
+from typing import Literal, Mapping, Protocol
 
 CellId = str  # e.g. "A1"; row-major A1, B1, C1, A2, ...
 Var = int     # 1-based positive variable ID; negative integer = negated literal
@@ -47,7 +47,7 @@ class Region:
 class Clue:
     id: str
     kind: Literal["FACT", "SAME", "DIFFERENT", "EXACTLY", "AT_LEAST", "AT_MOST", "PARITY", "COMPOUND"]
-    data: dict  # parse/validate once at load; no NLP
+    data: Mapping  # recursively frozen and detached from caller data; no NLP
 
 @dataclass(frozen=True)
 class PublicCard:
@@ -94,6 +94,17 @@ class SubmitResult:
 
 Conventions: `True = Criminal`; `False = Innocent`. Variables map deterministically by row-major board cell, NOT by display name. `CNF` includes auxiliary variables separate from the primary prefix; empty clause means UNSAT and empty conjunction means SAT. Public snapshot is a NEW immutable projection each time; fields `known_status`/`clue` are `None` for face-down cards.
 
+`Clue.data` recursively copies and freezes nested mappings and sequences: mappings are read-only and lists become tuples. Mutating the source data after construction must not change a clue. Snapshot construction must detach all nested data from Engine state; a frozen dataclass alone is insufficient. Constructing a face-down `PublicCard` with non-null `known_status` or `clue` raises `ValueError`.
+
+Mapping helpers in `models.py`:
+
+```python
+def cell_to_var(cell: CellId, size: int) -> Var: ...
+def var_to_cell(var: Var, size: int) -> CellId: ...
+```
+
+For a board of size N, `var = (row - 1) * N + column`, with rows and columns numbered from 1. A 3x3 board maps A1=1, B1=2, C1=3, A2=4 through C3=9. Helpers support integer sizes 1..26 with single uppercase column letters. Invalid sizes, coordinates, and non-primary variable IDs raise `ValueError`; auxiliary IDs have no board cell.
+
 ## 2. Game Engine API (VT1)
 
 ```python
@@ -136,6 +147,8 @@ def solve(cnf: CNF, assumptions: tuple[int, ...] = ()) -> SATResult: ...
 
 No external SAT solving library for main algorithm. Must perform unit propagation to fixpoint, conflict detection, deterministic variable selection (e.g. smallest unassigned ID), recursive branching, backtracking. Return complete model when SAT, UNSAT otherwise. Count decisions, propagations and backtracks with documented definitions, measure wall clock with `perf_counter()`. Temporary assumptions must not mutate input CNF. If an assumption contradicts another or an existing unit clause => UNSAT.
 
+Unfinished queries raise typed exceptions: `SolverTimeout` for a time limit and `SolverCancelled` for explicit cancellation. Neither means UNSAT or logical UNKNOWN. No incomplete query may justify accepting a verdict or revealing a card. `SATResult` represents completed SAT/UNSAT queries only.
+
 ## 5. Deductive Agent (VT4)
 
 ```python
@@ -155,6 +168,10 @@ First test KB itself for SAT. If KB UNSAT => INCONSISTENT (for every unresolved 
 - both SAT => UNKNOWN.
 Never reveal UNKNOWN. If >1 forced, choose first row-major. After accepted reveal, rebuild KB and repeat. Stop with SOLVED (all revealed), STUCK (no entailed step) or INCONSISTENT. DeductionTrace step: index, active clue IDs, temporary SAT assumptions/results, verdict, newly revealed clue ID, stats. The full-clue uniqueness check is separate from the public Agent, via an injected validation-only interface; block the first primary assignment with `(-v if true else v)` for each primary variable and test for a second model. Auxiliary variables do NOT appear in the blocking clause.
 
+`classify` returns a result for every unresolved character. A hint may select one forced character but does not replace complete classification. Trace entries record actual assumptions and query results; an UNSAT core is not required.
+
+Full-clue uniqueness belongs in `validation/uniqueness.py`, separate from the public Agent. Unique full-clue solutions and a no-guess path from initial public knowledge are separate checks; uniqueness alone does not establish playability.
+
 ## 6. GUI & application controller (VT5 + VT1)
 
 ```python
@@ -167,9 +184,13 @@ class GameView(Protocol):
 
 VT5 owns Tkinter/ttk/Canvas only; GUI never reads puzzle source or hidden truths. Controller owns Load, Restart, Hint, Auto Solve, manual verdict dispatch and asynchronous-safe UI updates. Running solver must not block Tkinter's event loop: offload computation, update widgets only on UI thread (Tkinter `.after`). Hint returns at least one currently entailed cell or relevant revealed clue, never a hidden clue.
 
+Controller serializes mutations of GameSession. Load/Restart creates a new session ID or increments a revision. Workers receive public snapshots only and emit versioned results; Controller discards stale results before applying them. GUI events are consumed on the UI thread with Tkinter `.after`. Load failure preserves the current session. Invalid or already-revealed cells leave state unchanged; their exact exception/result remains a team decision.
+
 ## 7. Testing, trace and metrics
 
 All tests under `tests/` do not mutate `src` files of another role. Use fake ports with exact signatures before implementations are merged. Standard benchmarks collect `primary_count`, `aux_count`, `clause_count`, `sat_calls`, `decisions`, `propagations`, `backtracks`, `deduction_steps`, `runtime_s`, result/status on same fixed puzzle set. Report failures and timeouts. DPLL per-call metrics must be accumulated by agent benchmark; avoid mixing SAT-call runtime with total app runtime without labels.
+
+Each SAT call carries a purpose: BASE_KB, CLASSIFY, VERDICT_RECHECK, HINT, UNIQUENESS or VALIDATION. Gameplay totals include actual Engine rechecks; validation and uniqueness totals are reported separately. Counters equal the sum of per-call logs. Record CNF counts per step, SAT runtime separately from end-to-end runtime, and cache hits separately from SAT calls. Any cache is keyed by session ID/revision.
 
 ## 8. Contract changes and Definition of Done
 
@@ -182,12 +203,5 @@ Only VT1 edits shared models and `CONTRACTS.md`; impacted roles approve contract
 - Exact time-limit threshold for stress cases and UI cancellation semantics.
 - Whether to preserve deterministic canonical encoding without auxiliary variables for all small cardinalities (suggest yes).
 
-## 10. Task 1.1 implementation and v0.2 review
-
-Source: https://app.notion.com/p/40f9cc1ed390818a9574d0006d788489
-The full integration proposal is preserved in CONTRACTS_V02_PROPOSAL.md.
-Baseline shared models are implemented in src/griductive/models.py. Clue.data is a recursively frozen Mapping: lists become tuples, mappings become read-only mappings, and caller data is detached. Face-down PublicCard rejects non-null status/clue. Engine snapshot independence still requires integration tests in task 1.2.
-
-Mapping helpers cell_to_var(cell, size) and var_to_cell(var, size) use row-major IDs, reject invalid cells/auxiliary IDs, and support sizes 1..26 (single-letter columns). These helper signatures and stricter immutable Clue data need consumer approval. SolverTimeout and SolverCancelled represent unfinished computation, never UNSAT. VerdictOracle and PublicGamePort support fake implementations.
-
-ControllerPort, HintResult, SATQuery, DeductionStep, AppEvent and DeductionTrace remain proposals: exact outcome/payload/totals types require agreement. No Controller, Encoder, DPLL or Agent implementation is included. All five role approvals remain pending; do not treat this baseline as a ratified contract.
+- Exact fields and types for ControllerPort, HintResult, SATQuery, DeductionStep, AppEvent and DeductionTrace, including event payloads and totals. Their draft signatures are not ratified API.
+- Policy for manual verdict/Hint during Auto Solve and the exception/result for invalid or already-revealed cells.
