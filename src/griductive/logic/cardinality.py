@@ -62,7 +62,12 @@ def exactly(lits: tuple[int, ...], k: int, pool: AuxPool,
 
 
 def _sequential_at_most(lits, k, pool):
-    """Sinz (2005) sequential counter; s[i][j] means "at least j+1 of lits[0..i] are true"."""
+    """Sinz (2005) sequential counter.
+
+    The clauses force s[i][j] = True whenever at least j+1 of lits[0..i] are
+    true; the converse is not enforced, so s[i][j] cannot be read back as an
+    exact count. Any assignment with at most k true literals extends to a model.
+    """
     if k == 0:
         return [(-lit,) for lit in lits]
     n = len(lits)
