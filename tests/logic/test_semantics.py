@@ -111,6 +111,15 @@ def test_sem03_rows_and_columns_follow_coordinates():
     assert resolve_region(Region('row', index=4), 4) == ('A4', 'B4', 'C4', 'D4')
 
 
+def test_sem03_empty_region_rejected_for_every_type():
+    # On a 1x1 board A1 has no neighbors; the region must not silently be empty.
+    with pytest.raises(ClueValidationError):
+        resolve_region({'type': 'neighbors', 'cell': 'A1'}, 1)
+    with pytest.raises(ClueValidationError):
+        validate_clue(clue('EXACTLY', k=0, region={'type': 'neighbors', 'cell': 'A1'}), 1)
+    assert resolve_region({'type': 'row', 'index': 1}, 1) == ('A1',)
+
+
 def test_sem03_explicit_cells_keep_order_and_must_be_distinct():
     assert resolve_region({'type': 'cells', 'cells': ['C3', 'A1']}, 3) == ('C3', 'A1')
     with pytest.raises(ClueValidationError):
