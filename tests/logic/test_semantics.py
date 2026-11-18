@@ -47,9 +47,24 @@ def test_sem01_every_clue_true_under_hidden_solution(path):
     puzzle = load_puzzle(str(path))
     solution = {card.cell: card.hidden_status.value == 'CRIMINAL' for card in puzzle.cards}
     for card in puzzle.cards:
-        if card.clue.kind in ('PARITY', 'COMPOUND'):
-            continue  # extensions arrive in task 2.3
         assert evaluate_clue(card.clue, solution, puzzle.size)
+
+
+def test_sem01_evaluator_never_uses_encoder(monkeypatch):
+    """Direct evaluation keeps working with every CNF builder disabled."""
+    from griductive.logic import cardinality, encoder, extensions
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError('evaluator called the CNF encoder')
+    for module, name in [(encoder, 'encode_clue'), (encoder, 'encode_kb'),
+                         (cardinality, 'at_most'), (cardinality, 'at_least'),
+                         (cardinality, 'exactly'), (extensions, 'encode_parity'),
+                         (extensions, 'encode_compound')]:
+        monkeypatch.setattr(module, name, forbidden)
+    for path in VALID:
+        puzzle = load_puzzle(str(path))
+        solution = {card.cell: card.hidden_status.value == 'CRIMINAL' for card in puzzle.cards}
+        assert all(evaluate_clue(card.clue, solution, puzzle.size) for card in puzzle.cards)
 
 
 def test_sem01_core_clues_match_truth_tables():

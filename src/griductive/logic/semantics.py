@@ -8,12 +8,13 @@ profession play no role (revealed clues are always true).
 from collections.abc import Mapping
 
 from griductive.models import CellId, Clue
+from . import extensions
 from .regions import (ClueValidationError, check_cell, check_size, field, parse_literal,
                       resolve_region)
 
 CORE_KINDS = ('FACT', 'SAME', 'DIFFERENT', 'EXACTLY', 'AT_LEAST', 'AT_MOST')
 COUNTING_KINDS = ('EXACTLY', 'AT_LEAST', 'AT_MOST')
-SUPPORTED_KINDS = CORE_KINDS
+SUPPORTED_KINDS = CORE_KINDS + extensions.EXTENSION_KINDS
 
 
 def parse_pair(clue: Clue, size: int) -> tuple[CellId, CellId]:
@@ -49,6 +50,8 @@ def referenced_cells(clue: Clue, size: int) -> tuple[CellId, ...]:
         return (parse_literal(clue.data, size)[0],)
     if clue.kind in ('SAME', 'DIFFERENT'):
         return parse_pair(clue, size)
+    if clue.kind in extensions.EXTENSION_KINDS:
+        return extensions.referenced_cells(clue, size)
     return parse_counting(clue, size)[0]
 
 
@@ -69,6 +72,8 @@ def evaluate_clue(clue: Clue, full_assignment: Mapping[CellId, bool], size: int)
     if clue.kind in ('SAME', 'DIFFERENT'):
         left, right = cells
         return (full_assignment[left] == full_assignment[right]) == (clue.kind == 'SAME')
+    if clue.kind in extensions.EXTENSION_KINDS:
+        return extensions.evaluate(clue, full_assignment, size)
     count = sum(full_assignment[cell] for cell in cells)
     k = parse_counting(clue, size)[1]
     return {'EXACTLY': count == k, 'AT_LEAST': count >= k, 'AT_MOST': count <= k}[clue.kind]
