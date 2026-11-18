@@ -16,8 +16,7 @@ from griductive.models import Clue, Inference, Status, var_to_cell
 
 ROOT = Path(__file__).resolve().parents[2]
 TUTORIAL = str(ROOT / 'puzzles/3x3/tutorial_3x3.json')
-# extensions_3x3 needs PARITY/COMPOUND (task 2.3)
-VALID = sorted(p for p in (ROOT / 'puzzles').glob('[34]x[34]/*.json') if p.stem != 'extensions_3x3')
+VALID = sorted((ROOT / 'puzzles').glob('[34]x[34]/*.json'))
 
 
 def clue(kind, **data):
