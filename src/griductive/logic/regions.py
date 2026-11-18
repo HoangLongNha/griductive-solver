@@ -64,8 +64,8 @@ def region_from_data(data: Region | Mapping) -> Region:
 def resolve_region(region: Region | Mapping, size: int) -> tuple[CellId, ...]:
     """Return the region's distinct cells; rows/columns/neighbors in row-major order.
 
-    Explicit `cells` regions keep their listed order. Empty, duplicate or
-    off-board regions raise `ClueValidationError`.
+    Explicit `cells` regions keep their listed order. Empty (of any type),
+    duplicate or off-board regions raise `ClueValidationError`.
     """
     region = region_from_data(region)
     check_size(size)
@@ -85,10 +85,10 @@ def resolve_region(region: Region | Mapping, size: int) -> tuple[CellId, ...]:
                       if max(abs(c - x), abs(r - y)) == 1)
     elif region.type == 'cells':
         cells = tuple(check_cell(cell, size) for cell in region.cells)
-        if not cells:
-            raise ClueValidationError('Explicit region must not be empty')
         if len(set(cells)) != len(cells):
             raise ClueValidationError('Explicit region contains duplicate cells')
     else:
         raise ClueValidationError(f'Unknown region type {region.type!r}')
+    if not cells:  # e.g. explicit [] or the neighbors of A1 on a 1x1 board
+        raise ClueValidationError(f'{region.type} region resolves to no cells')
     return cells
