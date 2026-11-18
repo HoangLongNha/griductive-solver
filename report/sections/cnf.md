@@ -72,7 +72,14 @@ Kiểm tra đủ 8 phép gán: với #R = 0 hoặc 1, có một cặp toàn sai 
 
 ### 3.3 Vùng lớn: sequential counter (Sinz, 2005)
 
-Mã hoá trực tiếp có thể bùng nổ, ví dụ C(25, 13) ≈ 5,2 triệu mệnh đề cho EXACTLY(12, 25 ô). Vì vậy khi số mệnh đề trực tiếp vượt `DIRECT_CLAUSE_LIMIT = 256`, encoder chuyển sang sequential counter. Biến phụ `s_{i,j}` có nghĩa "trong x₁…x_i có ít nhất j biến đúng":
+Mã hoá trực tiếp có thể bùng nổ. Với EXACTLY(12, 25 ô), vế AT_MOST 12 cần C(25, 13) = 5.200.300 mệnh đề và vế AT_LEAST 12 cần C(25, 14) = 4.457.400 mệnh đề, tổng cộng 9.657.700 mệnh đề. Vì vậy khi số mệnh đề trực tiếp vượt `DIRECT_CLAUSE_LIMIT = 256`, encoder chuyển sang sequential counter. Với chính ví dụ này, encoder chỉ sinh 1.223 mệnh đề và 600 biến phụ.
+
+Biến phụ `s_{i,j}` gắn với điều kiện "trong x₁…x_i có ít nhất j biến đúng", nhưng chỉ theo **một chiều**: các mệnh đề buộc `s_{i,j} = True` khi điều kiện đó xảy ra, còn chiều ngược lại không được ràng buộc (một model vẫn có thể có `s_{i,j} = True` dù số biến đúng ít hơn j). Vì vậy không thể dùng giá trị `s_{i,j}` trong model để đọc ngược số đầu vào đúng. Một chiều là đủ cho tính đúng:
+
+- Nếu #R ≤ k: gán `s_{i,j}` đúng bằng "tiền tố x₁…x_i có ≥ j biến đúng" thỏa mọi mệnh đề, nên có cách gán biến phụ.
+- Nếu #R > k: các mệnh đề lan truyền buộc `sᵢ₋₁,ₖ = True` trước biến đúng thứ k+1, khiến `(¬xᵢ ∨ ¬sᵢ₋₁,ₖ)` bị vi phạm, nên không có cách gán biến phụ nào.
+
+Các mệnh đề:
 
 ```
 (¬x₁ ∨ s₁,₁),  (¬s₁,ⱼ) với j>1
@@ -110,15 +117,16 @@ KB_t = ⋀_{X đã lật} (C_X hoặc ¬C_X)  ∧  ⋀_{clue đã lật} CNF(clu
 
 Phân tích tutorial_3x3: FACT 1 + SAME 2 + DIFFERENT 2 + FACT 1 + EXACTLY(2,3) 4 + EXACTLY(2,3) 4 + DIFFERENT 2 + AT_MOST(1,3) C(3,2)=3 + AT_LEAST(1,3) C(3,3)=1, tổng cộng 20 mệnh đề. KB₀ gồm mệnh đề đơn vị `(1)` (A1 là Criminal) và `(¬2)` (clue của A1 nói B1 là Innocent).
 
-Với vùng lớn dùng biến phụ, ví dụ EXACTLY(12, 25 ô) trên bàn 5×5: aux = 24·12 + 24·13 = 600, và số mệnh đề khớp với công thức ở mục 3.3 (đã được kiểm tra trong test `test_cnf04_auxiliary_counts_match_sequential_counter`).
+Với vùng lớn dùng biến phụ, ví dụ EXACTLY(12, 25 ô) trên bàn 5×5: aux = 24·12 + 24·13 = 600 và clauses = 588 + 635 = 1.223 (vế AT_MOST 12 và vế AT_MOST 13 trên literal phủ định), khớp với công thức ở mục 3.3; mã hoá trực tiếp sẽ cần 9.657.700 mệnh đề. Số liệu này được kiểm trong test `test_cnf04_auxiliary_counts_match_sequential_counter`.
 
 ## 6. Ví dụ suy luận trên KB_t
 
-Các ví dụ dưới đây có trong `tests/logic/test_inference_examples.py`. Ở đây entailment được kiểm theo định nghĩa `KB ⊨ l ⟺ KB ∧ ¬l UNSAT`, bằng bộ kiểm tra chỉ dùng trong test.
+Các ví dụ dưới đây có trong `tests/logic/test_inference_examples.py` và `tests/logic/test_extensions.py`. Ở đây entailment được kiểm theo định nghĩa `KB ⊨ l ⟺ KB ∧ ¬l UNSAT`, bằng bộ kiểm tra chỉ dùng trong test.
 
 - **Ví dụ chung 1.3a** (tutorial_3x3). Ban đầu KB₀ = `(1) ∧ (¬2)`. Khi đó `KB₀ ∧ (2)` UNSAT nên B1 là Innocent, còn C1 vẫn UNKNOWN vì clue `c-B1` đang ẩn. Sau khi B1 được lật, KB₁ có thêm `(¬2∨3) ∧ (2∨¬3)`, từ đó suy ra C1 là Innocent.
 - **PARITY ảnh hưởng tới kết luận:** biết A1 là Criminal, B1 là Innocent và PARITY(ODD, row 1) thì C1 bắt buộc là Innocent. Nếu bỏ clue PARITY, C1 trở về UNKNOWN.
 - **COMPOUND ảnh hưởng tới kết luận:** biết A1 là Criminal, B1 là Innocent và có `(A1 Criminal ∧ B1 Innocent) → C1 Criminal` thì C1 là Criminal. Nếu tiền đề sai (B1 là Criminal), C1 là UNKNOWN, vì không được suy ngược từ một kéo theo có tiền đề sai.
+- **Mức gameplay** (`test_extensions.py`): với mỗi extension, một puzzle 3×3 được nạp qua `load_puzzle` vào `GameSession` (A1, B1 đã lật, clue extension nằm trên A1). Verdict cho C1 được Engine **ACCEPTED** và C1 được lật; trên cùng bàn đó nhưng thay clue extension bằng một FACT không mang thông tin, cùng verdict bị trả về **NOT_PROVABLE**. Kết luận được đối chiếu với `fixture_oracle` độc lập.
 - **KB mâu thuẫn:** khi KB UNSAT, mọi ô được phân loại là INCONSISTENT.
 
 ## 7. Kiểm chứng
@@ -127,7 +135,10 @@ Tiêu chí tương đương ngữ nghĩa: với mọi phép gán A trên các bi
 
 - **VER-01** (`test_cross_check.py`): duyệt hết mọi FACT, mọi cặp SAME/DIFFERENT, mọi hàng, cột, neighbors (cùng một vùng `cells` không liên tiếp) với mọi k và cả hai tính chẵn lẻ, thêm một loạt COMPOUND hai tiền đề, trên cả bàn 3×3 và 4×4. Với mỗi clue, test duyệt hết mọi phép gán của các ô liên quan.
 - Evaluator độc lập với encoder: test vô hiệu hoá toàn bộ các hàm sinh CNF (monkeypatch để chúng ném lỗi), và `evaluate_clue` vẫn chạy đúng trên mọi fixture.
-- Sequential counter và chuỗi XOR được ép dùng (`direct_limit=0`) với n = 1…7 và mọi k.
+- Phạm vi kiểm các phép mã hoá có biến phụ:
+  - Sequential counter: ép dùng (`direct_limit=0`) với n = 1…7, mọi k từ 0 tới n, cho cả AT_MOST, AT_LEAST và EXACTLY.
+  - Chuỗi XOR của PARITY: ép dùng với n = 1…6, cho cả ODD và EVEN; thêm một test vùng 10 ô, nơi encoder tự chuyển sang XOR (2⁹ > 256) với 9 biến phụ.
+  - Số biến phụ và số mệnh đề của sequential counter ở quy mô lớn (EXACTLY(12, 25 ô)) được kiểm theo công thức.
 - Mô hình của `encode_full_clues` trên các fixture trùng khớp với tập mô hình do bộ duyệt độc lập `tests/fixture_oracle.py` liệt kê.
 - Việc kiểm tra "có tồn tại cách gán biến phụ" dùng một bộ tìm kiếm nhỏ chỉ có trong test (`tests/logic/cnf_check.py`), không phải DPLL production của VT3.
 - **VER-03:** có test âm cho vùng hoặc tham số sai, kể cả clue sai nằm trong KB.

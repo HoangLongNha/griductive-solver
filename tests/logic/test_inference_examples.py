@@ -1,25 +1,14 @@
 """KB_t examples handed to VT1/VT4: the shared 1.3a walk-through and extension clues
-that change a conclusion. Entailment here uses the test-only `has_extension`
+that change a conclusion. Entailment here uses the test-only `cnf_check.classify`
 check (KB |= l  iff  KB AND -l is UNSAT), not the production DPLL."""
 from pathlib import Path
 
-from cnf_check import has_extension
+from cnf_check import classify
 from griductive.game.engine import GameSession, load_puzzle
 from griductive.logic import encode_kb
 from griductive.models import Clue, Inference, PublicCard, PublicState, Status, var_to_cell
 
 ROOT = Path(__file__).resolve().parents[2]
-
-
-def classify(cnf, var):
-    clauses = list(cnf.clauses)
-    if not has_extension(clauses, {}):
-        return 'INCONSISTENT'
-    if not has_extension(clauses + [(-var,)], {}):
-        return 'CRIMINAL'
-    if not has_extension(clauses + [(var,)], {}):
-        return 'INNOCENT'
-    return 'UNKNOWN'
 
 
 def public(revealed):
