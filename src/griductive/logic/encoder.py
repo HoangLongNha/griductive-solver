@@ -8,6 +8,7 @@ No formula is written per puzzle; every clue goes through `encode_clue`.
 from collections.abc import Iterable
 
 from griductive.models import CNF, CellId, Clause, Clue, PublicState, cell_to_var
+from . import extensions
 from .cardinality import AuxPool, at_least, at_most, exactly
 from .regions import check_size, parse_literal, parse_status
 from .semantics import check_clue, parse_counting, parse_pair
@@ -34,6 +35,14 @@ def encode_clue(clue: Clue, size: int, pool: AuxPool) -> list[Clause]:
     if clue.kind == 'DIFFERENT':
         a, b = map(var, parse_pair(clue, size))
         return [(a, b), (-a, -b)]
+    if clue.kind == 'PARITY':
+        cells, odd = extensions.parse_parity(clue, size)
+        return extensions.encode_parity(tuple(map(var, cells)), odd, pool)
+    if clue.kind == 'COMPOUND':
+        premises, conclusion = extensions.parse_compound(clue, size)
+        return extensions.encode_compound(
+            tuple(literal(cell, value, size) for cell, value in premises),
+            literal(*conclusion, size))
     cells, k = parse_counting(clue, size)
     encode = {'EXACTLY': exactly, 'AT_LEAST': at_least, 'AT_MOST': at_most}[clue.kind]
     return encode(tuple(map(var, cells)), k, pool)
