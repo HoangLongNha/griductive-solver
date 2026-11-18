@@ -37,6 +37,18 @@ def has_extension(clauses, fixed):
     return True
 
 
+def classify(cnf, var):
+    """Entailment by definition: KB |= C iff KB AND -C is UNSAT (test-only)."""
+    clauses = list(cnf.clauses)
+    if not has_extension(clauses, {}):
+        return 'INCONSISTENT'
+    if not has_extension(clauses + [(-var,)], {}):
+        return 'CRIMINAL'
+    if not has_extension(clauses + [(var,)], {}):
+        return 'INNOCENT'
+    return 'UNKNOWN'
+
+
 def assert_clue_equivalent(clue, size, cnf_clauses, primary_count):
     """For every assignment of the referenced cells (others innocent):
     evaluator is true  <=>  some auxiliary completion satisfies the CNF."""
