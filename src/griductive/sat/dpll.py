@@ -7,12 +7,12 @@ Features:
 - Deterministic branching order: branch True first, then False.
 - Complete assignment return for SAT results (all variables 1..variable_count).
 - Non-mutating assumptions support (input CNF clauses remain immutable).
-- Accurate stats counters: decisions, propagations, backtracks, runtime_s.
+- Accurate stats counters: decisions, propagations, backtracks, runtime_s via `SolverStatsTracker`.
 - SolverTimeout support for time-bounded runs.
 """
 from __future__ import annotations
 
-import time
+from collections.abc import Sequence
 from typing import Mapping
 
 from griductive.models import (
@@ -23,9 +23,10 @@ from griductive.models import (
     SolverCancelled,
     SolverTimeout,
 )
+from .statistics import SolverStatsTracker, zero_stats
 
 
-def _validate_cnf_and_assumptions(cnf: CNF, assumptions: tuple[int, ...] | list[int]) -> None:
+def _validate_cnf_and_assumptions(cnf: CNF, assumptions: Sequence[int]) -> None:
     """Validate structure and variable bounds of CNF and assumptions."""
     if not isinstance(cnf, CNF):
         raise TypeError(f"Expected CNF instance, got {type(cnf).__name__}")
@@ -67,11 +68,7 @@ class _DPLLRunner:
         self.var_count = cnf.variable_count
         self.assumptions = assumptions
         self.timeout_s = timeout_s
-        self.start_time = time.perf_counter()
-
-        self.decisions = 0
-        self.propagations = 0
-        self.backtracks = 0
+        self.tracker = SolverStatsTracker()
 
         # Preprocess and normalize clauses without mutating cnf.clauses
         self.clauses: list[tuple[int, ...]] = []
@@ -98,7 +95,7 @@ class _DPLLRunner:
 
     def _check_timeout(self) -> None:
         if self.timeout_s is not None:
-            if time.perf_counter() - self.start_time > self.timeout_s:
+            if self.tracker.elapsed_seconds > self.timeout_s:
                 raise SolverTimeout(f"SAT solver exceeded timeout of {self.timeout_s}s")
 
     def _propagate(self, assignment: dict[int, bool]) -> bool:
@@ -136,7 +133,7 @@ class _DPLLRunner:
                         return False
                 else:
                     assignment[v] = val
-                    self.propagations += 1
+                    self.tracker.record_propagation()
             else:
                 return True
 
@@ -181,7 +178,7 @@ class _DPLLRunner:
             return self._is_satisfied(assignment)
 
         # Step 4: Branch True first, then False
-        self.decisions += 1
+        self.tracker.record_decision()
 
         # Branch True
         saved = dict(assignment)
@@ -190,7 +187,7 @@ class _DPLLRunner:
             return True
 
         # Backtrack from True branch
-        self.backtracks += 1
+        self.tracker.record_backtrack()
         assignment.clear()
         assignment.update(saved)
 
@@ -200,7 +197,7 @@ class _DPLLRunner:
             return True
 
         # Backtrack from False branch
-        self.backtracks += 1
+        self.tracker.record_backtrack()
         assignment.clear()
         assignment.update(saved)
         return False
@@ -208,11 +205,7 @@ class _DPLLRunner:
     def run(self) -> SATResult:
         """Execute the solve query and return a frozen SATResult."""
         if self.has_empty_clause:
-            runtime_s = time.perf_counter() - self.start_time
-            stats = SATStats(
-                decisions=0, propagations=0, backtracks=0, runtime_s=runtime_s
-            )
-            return SATResult(is_sat=False, assignment=None, stats=stats)
+            return SATResult(is_sat=False, assignment=None, stats=self.tracker.snapshot())
 
         # Process assumptions into initial assignment
         initial_assignment: dict[int, bool] = {}
@@ -222,24 +215,15 @@ class _DPLLRunner:
             if v in initial_assignment:
                 if initial_assignment[v] != val:
                     # Direct assumption contradiction (e.g. (+1, -1))
-                    runtime_s = time.perf_counter() - self.start_time
-                    stats = SATStats(
-                        decisions=0, propagations=0, backtracks=0, runtime_s=runtime_s
+                    return SATResult(
+                        is_sat=False, assignment=None, stats=self.tracker.snapshot()
                     )
-                    return SATResult(is_sat=False, assignment=None, stats=stats)
             else:
                 initial_assignment[v] = val
 
         assignment = dict(initial_assignment)
         is_sat = self._dpll(assignment)
-        runtime_s = time.perf_counter() - self.start_time
-
-        stats = SATStats(
-            decisions=self.decisions,
-            propagations=self.propagations,
-            backtracks=self.backtracks,
-            runtime_s=runtime_s,
-        )
+        stats = self.tracker.snapshot()
 
         if is_sat:
             # Ensure complete model: keys 1..var_count
@@ -252,7 +236,7 @@ class _DPLLRunner:
 
 def solve(
     cnf: CNF,
-    assumptions: tuple[int, ...] = (),
+    assumptions: tuple[int, ...] | Sequence[int] = (),
     *,
     timeout_s: float | None = None,
 ) -> SATResult:
@@ -269,6 +253,7 @@ def solve(
                    If UNSAT, contains is_sat=False and assignment=None.
                    Both cases include frozen SATStats counters.
     """
-    _validate_cnf_and_assumptions(cnf, assumptions)
-    runner = _DPLLRunner(cnf, assumptions, timeout_s=timeout_s)
+    assumptions_tuple = tuple(assumptions)
+    _validate_cnf_and_assumptions(cnf, assumptions_tuple)
+    runner = _DPLLRunner(cnf, assumptions_tuple, timeout_s=timeout_s)
     return runner.run()
