@@ -128,7 +128,8 @@ def _invoke_solver(solver, cnf: CNF, assumptions: tuple[int, ...]) -> SATResult:
 def build_kb(public: PublicState, encoder) -> KnowledgeBase:
     """Build a public `KnowledgeBase` from a `PublicState` via the injected CNF encoder."""
     ordered_cards = validate_public_state(public)
-    cnf = _invoke_encoder(encoder, public)
+    normalized_public = PublicState(public.puzzle_id, public.size, ordered_cards)
+    cnf = _invoke_encoder(encoder, normalized_public)
 
     expected_primary = public.size * public.size
     if cnf.primary_count != expected_primary:
