@@ -266,6 +266,28 @@ def test_kb_row_major_ordering_and_cnf_metrics():
     assert kb.metrics.clause_count == 3
 
 
+def test_kb_normalization_passes_row_major_snapshot_to_encoder():
+    """Ensure encoder receives cards in deterministic row-major order regardless of input permutation."""
+    clue_a1 = Clue("c-A1", "FACT", {"cell": "B1", "status": "INNOCENT"})
+    clue_b1 = Clue("c-B1", "FACT", {"cell": "C1", "status": "CRIMINAL"})
+    normal_state = make_public_state(
+        3,
+        {"A1": (Status.CRIMINAL, clue_a1), "B1": (Status.INNOCENT, clue_b1)},
+    )
+    shuffled_state = PublicState(
+        normal_state.puzzle_id,
+        normal_state.size,
+        tuple(reversed(normal_state.cards)),
+    )
+
+    kb_normal = build_kb(normal_state, encode_kb)
+    kb_shuffled = build_kb(shuffled_state, encode_kb)
+
+    assert kb_normal.active_clue_ids == kb_shuffled.active_clue_ids == ("c-A1", "c-B1")
+    assert kb_normal.cnf.clauses == kb_shuffled.cnf.clauses
+    assert kb_normal.cnf == kb_shuffled.cnf
+
+
 def test_query_log_records_purposes_and_assumptions():
     """SATQuery audit log records BASE_KB and CLASSIFY calls with exact assumptions."""
     state = make_public_state(2, {"A1": (Status.CRIMINAL, None)})

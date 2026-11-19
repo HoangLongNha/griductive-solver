@@ -67,6 +67,15 @@ def _revealed_clue_id(state: PublicState, cell: CellId | None) -> str | None:
     return None
 
 
+def _extract_oracle(game: PublicGamePort):
+    """Retrieve oracle adapter if present on the game port or session."""
+    if hasattr(game, "_oracle"):
+        return getattr(game, "_oracle")
+    if hasattr(game, "oracle"):
+        return getattr(game, "oracle")
+    return None
+
+
 def auto_solve(
     game: PublicGamePort,
     encoder,
@@ -83,6 +92,11 @@ def auto_solve(
     run_start = perf_counter()
     steps: list[DeductionStep] = []
     cumulative_queries: list[SATQuery] = []
+
+    # Ensure engine verdict verification queries are tracked (Contracts §7)
+    oracle = _extract_oracle(game)
+    if oracle is not None and getattr(oracle, "query_log", None) is None:
+        object.__setattr__(oracle, "query_log", []) if hasattr(oracle, "__dataclass_fields__") else setattr(oracle, "query_log", [])
 
     while True:
         step_start = perf_counter()
@@ -127,7 +141,17 @@ def auto_solve(
             )
 
         cell, verdict = forced
+        oracle_log = getattr(oracle, "query_log", None)
+        oracle_idx_before = len(oracle_log) if oracle_log is not None else 0
+
         submit_res = game.submit_verdict(cell, verdict)
+
+        # Collect any SAT queries executed by the engine during verdict verification (Contracts §7)
+        recheck_queries = ()
+        if oracle_log is not None and len(oracle_log) > oracle_idx_before:
+            recheck_queries = tuple(oracle_log[oracle_idx_before:])
+
+        combined_step_queries = tuple(step_queries) + recheck_queries
 
         if submit_res.outcome == VerdictStatus.ACCEPTED:
             next_state = submit_res.state
@@ -138,24 +162,24 @@ def auto_solve(
                     puzzle_id=state.puzzle_id,
                     status=TraceStatus.INCONSISTENT,
                     steps=steps,
-                    terminal_queries=step_queries,
+                    terminal_queries=combined_step_queries,
                     total_runtime_s=perf_counter() - run_start,
                     final_state=next_state,
                     message="Game port accepted verdict without revealing a card",
                 )
 
-            cumulative_queries.extend(step_queries)
+            cumulative_queries.extend(combined_step_queries)
             step = DeductionStep(
                 step_index=len(steps) + 1,
                 active_clue_ids=kb.active_clue_ids,
                 cnf_metrics=kb.metrics,
-                queries=tuple(step_queries),
+                queries=combined_step_queries,
                 cell=cell,
                 verdict=verdict,
                 outcome=submit_res.outcome,
                 newly_revealed_cell=submit_res.newly_revealed,
                 newly_revealed_clue_id=_revealed_clue_id(next_state, submit_res.newly_revealed),
-                stats=aggregate_queries(step_queries),
+                stats=aggregate_queries(combined_step_queries),
                 cumulative_stats=aggregate_queries(cumulative_queries),
                 step_runtime_s=perf_counter() - step_start,
             )
@@ -169,7 +193,7 @@ def auto_solve(
                 puzzle_id=state.puzzle_id,
                 status=TraceStatus.INCONSISTENT,
                 steps=steps,
-                terminal_queries=step_queries,
+                terminal_queries=combined_step_queries,
                 total_runtime_s=perf_counter() - run_start,
                 final_state=submit_res.state,
                 message=submit_res.message or f"Verdict rejected: {submit_res.outcome.value}",
@@ -179,7 +203,7 @@ def auto_solve(
             puzzle_id=state.puzzle_id,
             status=TraceStatus.STUCK,
             steps=steps,
-            terminal_queries=step_queries,
+            terminal_queries=combined_step_queries,
             total_runtime_s=perf_counter() - run_start,
             final_state=submit_res.state,
             message=submit_res.message or "Verdict not provable",

@@ -393,8 +393,10 @@ def test_shared_13a_walkthrough_and_on_step_streaming_callback():
     assert s1.active_clue_ids == ("c-A1",)
     assert (s1.cell, s1.verdict) == ("B1", Status.INNOCENT)
     assert s1.newly_revealed_clue_id == "c-B1"
-    b1_qs = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "B1"]
-    assert b1_qs == [((-2,), True), ((2,), False)]
+    b1_classify_qs = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "B1" and q.purpose == QueryPurpose.CLASSIFY]
+    assert b1_classify_qs == [((-2,), True), ((2,), False)]
+    b1_recheck_qs = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "B1" and q.purpose == QueryPurpose.VERDICT_RECHECK]
+    assert b1_recheck_qs == [((-2,), True), ((2,), False)]
     c1_qs_step1 = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "C1"]
     assert c1_qs_step1 == [((-3,), True), ((3,), True)]  # C1 was still UNKNOWN before B1 revealed
 
@@ -411,3 +413,32 @@ def test_shared_13a_walkthrough_and_on_step_streaming_callback():
         assert step.cumulative_stats.sat_calls == prev_calls + step.stats.sat_calls
         prev_calls = step.cumulative_stats.sat_calls
     assert trace.steps[-1].cumulative_stats == trace.totals
+
+
+def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_solver_calls():
+    """Contracts §7 & AGL-04: total_sat_calls must include Engine submit_verdict verification queries.
+    
+    Validates on tutorial_3x3 with counting solver: 8 steps x 3 verification queries = 24 calls,
+    plus 80 classify queries = exactly 104 calls in both trace.total_sat_calls and solver.call_count.
+    """
+    puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
+    real_calls = 0
+
+    def counting_solver(cnf: CNF, assumptions: tuple[int, ...] = ()) -> SATResult:
+        nonlocal real_calls
+        real_calls += 1
+        return brute_force_test_solver(cnf, assumptions)
+
+    oracle = AgentVerdictOracle(encode_kb, counting_solver)
+    game = GameSession(puzzle, oracle)
+
+    trace = auto_solve(game, encode_kb, counting_solver)
+    assert trace.terminal == TraceStatus.SOLVED
+    assert trace.deduction_steps == 8
+
+    # Each step includes the classification queries plus the engine recheck queries (QueryPurpose.VERDICT_RECHECK)
+    for step in trace.steps:
+        recheck_qs = [q for q in step.queries if q.purpose == QueryPurpose.VERDICT_RECHECK]
+        assert len(recheck_qs) == 2  # (-v,) and (v,) assumptions evaluated during submit_verdict
+
+    assert trace.total_sat_calls == real_calls == 104
