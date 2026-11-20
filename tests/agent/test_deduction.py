@@ -442,3 +442,77 @@ def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_sol
         assert len(recheck_qs) == 2  # (-v,) and (v,) assumptions evaluated during submit_verdict
 
     assert trace.total_sat_calls == real_calls == 104
+
+
+def test_agl04_pure_public_game_port_adapter_with_oracle_query_log():
+    """Ensure pure PublicGamePort adapter without _oracle / oracle attributes
+    captures all 104 SAT calls (including 24 engine recheck queries) when passed
+    a shared oracle_query_log channel."""
+    puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
+    real_calls = 0
+
+    def counting_solver(cnf: CNF, assumptions: tuple[int, ...] = ()) -> SATResult:
+        nonlocal real_calls
+        real_calls += 1
+        return brute_force_test_solver(cnf, assumptions)
+
+    shared_query_log: list[SATQuery] = []
+    oracle = AgentVerdictOracle(encode_kb, counting_solver, query_log=shared_query_log)
+    session = GameSession(puzzle, oracle)
+
+    class PurePublicGamePortAdapter:
+        """Strict adapter implementing PublicGamePort with only snapshot and submit_verdict."""
+        __slots__ = ("_session",)
+
+        def __init__(self, sess: GameSession):
+            self._session = sess
+
+        def snapshot(self) -> PublicState:
+            return self._session.snapshot()
+
+        def submit_verdict(self, cell: CellId, status: Status) -> SubmitResult:
+            return self._session.submit_verdict(cell, status)
+
+    adapter = PurePublicGamePortAdapter(session)
+    assert not hasattr(adapter, "_oracle")
+    assert not hasattr(adapter, "oracle")
+
+    trace = auto_solve(
+        adapter,
+        encode_kb,
+        counting_solver,
+        oracle_query_log=shared_query_log,
+    )
+    assert trace.terminal == TraceStatus.SOLVED
+    assert trace.deduction_steps == 8
+    assert trace.total_sat_calls == real_calls == 104
+    assert len(shared_query_log) == 24  # 8 steps x 3 verification queries (1 BASE_KB + 2 VERDICT_RECHECK)
+
+
+def test_auto_solve_handles_immutable_or_custom_oracle_without_attribute_error():
+    """Verify that an oracle without query_log that rejects attribute setting doesn't raise AttributeError."""
+    class CustomVerdictOracle:
+        __slots__ = ()
+
+        def classify_one(self, state: PublicState, cell: CellId) -> Inference:
+            return Inference.UNKNOWN
+
+    fake_port = make_chain_2x2_game()
+
+    class PureGamePort:
+        __slots__ = ("_oracle", "_fake")
+
+        def __init__(self, o, f):
+            self._oracle = o
+            self._fake = f
+
+        def snapshot(self) -> PublicState:
+            return self._fake.snapshot()
+
+        def submit_verdict(self, cell: CellId, status: Status) -> SubmitResult:
+            return self._fake.submit_verdict(cell, status)
+
+    port = PureGamePort(CustomVerdictOracle(), fake_port)
+    # Should run and complete SOLVED without raising AttributeError on _oracle.query_log
+    trace = auto_solve(port, encode_kb, brute_force_test_solver)
+    assert trace.terminal == TraceStatus.SOLVED

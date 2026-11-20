@@ -82,12 +82,18 @@ def auto_solve(
     solver,
     *,
     on_step: Callable[[DeductionStep], None] | None = None,
+    oracle_query_log: list[SATQuery] | None = None,
 ) -> DeductionTrace:
     """Run the no-guess deduction loop over `PublicGamePort` until terminal status.
 
     If `on_step` is provided, it is invoked right after each accepted deduction
     step so Controllers/GUIs can stream live updates without waiting for the
     entire run to finish.
+
+    `oracle_query_log` allows passing a shared query log channel with the engine's
+    VerdictOracle, enabling deduction steps and trace to capture verification
+    queries (Contracts §7) even when `game` is a pure `PublicGamePort` adapter
+    without exposing `_oracle`.
     """
     run_start = perf_counter()
     steps: list[DeductionStep] = []
@@ -95,8 +101,15 @@ def auto_solve(
 
     # Ensure engine verdict verification queries are tracked (Contracts §7)
     oracle = _extract_oracle(game)
-    if oracle is not None and getattr(oracle, "query_log", None) is None:
-        object.__setattr__(oracle, "query_log", []) if hasattr(oracle, "__dataclass_fields__") else setattr(oracle, "query_log", [])
+    oracle_log = oracle_query_log
+    if oracle_log is None and oracle is not None:
+        oracle_log = getattr(oracle, "query_log", None)
+        if oracle_log is None:
+            try:
+                oracle_log = []
+                setattr(oracle, "query_log", oracle_log)
+            except (AttributeError, TypeError):
+                oracle_log = None
 
     while True:
         step_start = perf_counter()
@@ -141,7 +154,6 @@ def auto_solve(
             )
 
         cell, verdict = forced
-        oracle_log = getattr(oracle, "query_log", None)
         oracle_idx_before = len(oracle_log) if oracle_log is not None else 0
 
         submit_res = game.submit_verdict(cell, verdict)
