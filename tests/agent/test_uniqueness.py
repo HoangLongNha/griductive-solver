@@ -4,6 +4,7 @@ Test IDs: HINT-01, UNIQ-01, UNIQ-02, UNIQ-03.
 Uses test-only fake solvers and spy wrappers for unit isolation, plus integration
 checks against VT1's `load_puzzle`/`GameSession` and VT2's `encode_kb`/`encode_full_clues`.
 """
+from dataclasses import replace
 from itertools import product
 from pathlib import Path
 
@@ -189,7 +190,7 @@ def test_hint_01_never_reads_hidden_labels_or_unrevealed_clues():
 
 
 def test_hint_solved_and_inconsistent_states():
-    """Hint cleanly reports SOLVED (0 queries) and INCONSISTENT public KB."""
+    """Hint checks KB consistency even when all cards are revealed."""
     solved_public = _make_2x2_public(
         {
             "A1": (Status.CRIMINAL, Clue("c-A1", "FACT", {"cell": "A1", "status": "CRIMINAL"})),
@@ -198,11 +199,34 @@ def test_hint_solved_and_inconsistent_states():
             "B2": (Status.INNOCENT, Clue("c-B2", "FACT", {"cell": "B2", "status": "INNOCENT"})),
         }
     )
-    solved_hint = get_hint(solved_public, encode_kb, brute_force_test_solver)
+    solved_log: list[SATQuery] = []
+    solved_hint = get_hint(solved_public, encode_kb, brute_force_test_solver, query_log=solved_log)
     assert solved_hint.outcome == HintOutcome.SOLVED
     assert solved_hint.cell is None
     assert solved_hint.status is None
-    assert solved_hint.stats.sat_calls == 0
+    assert solved_hint.stats.sat_calls == 1
+    assert solved_hint.queries == tuple(solved_log)
+    assert solved_log[0].purpose == QueryPurpose.BASE_KB
+
+    inconsistent_full_public = replace(
+        solved_public,
+        cards=(
+            replace(
+                solved_public.cards[0],
+                clue=Clue("c-A1", "FACT", {"cell": "A1", "status": "INNOCENT"}),
+            ),
+            *solved_public.cards[1:],
+        ),
+    )
+    full_log: list[SATQuery] = []
+    full_hint = get_hint(
+        inconsistent_full_public, encode_kb, brute_force_test_solver, query_log=full_log
+    )
+    assert full_hint.outcome == HintOutcome.INCONSISTENT
+    assert full_hint.cell is None and full_hint.status is None
+    assert full_hint.stats.sat_calls == 1
+    assert full_hint.queries == tuple(full_log)
+    assert full_log[0].purpose == QueryPurpose.BASE_KB
 
     inconsistent_public = _make_2x2_public(
         {

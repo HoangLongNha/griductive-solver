@@ -13,7 +13,7 @@ from griductive.models import CellId, Inference, PublicState, Status
 
 from .deduction import select_forced_verdict
 from .entailment import classify_kb
-from .knowledge_base import QueryPurpose, SATQuery, build_kb
+from .knowledge_base import QueryPurpose, SATQuery, build_kb, run_sat_query
 from .trace import AggregatedSATStats, aggregate_queries
 
 
@@ -82,14 +82,38 @@ def get_hint(
     """
     kb = build_kb(public, encoder)
     if not kb.unresolved_cells:
+        local_log: list[SATQuery] = []
+        try:
+            base_result = run_sat_query(
+                solver,
+                kb.cnf,
+                (),
+                purpose=QueryPurpose.BASE_KB,
+                query_log=local_log,
+            )
+        finally:
+            if query_log is not None:
+                query_log.extend(local_log)
+
+        queries = tuple(local_log)
+        if not base_result.is_sat:
+            return HintResult(
+                outcome=HintOutcome.INCONSISTENT,
+                cell=None,
+                status=None,
+                revealed_clue_ids=kb.active_clue_ids,
+                message="Public knowledge base is inconsistent; no valid hint is available.",
+                queries=queries,
+                stats=aggregate_queries(queries),
+            )
         return HintResult(
             outcome=HintOutcome.SOLVED,
             cell=None,
             status=None,
             revealed_clue_ids=kb.active_clue_ids,
             message="All cards are already revealed; no hint needed.",
-            queries=(),
-            stats=_EMPTY_STATS,
+            queries=queries,
+            stats=aggregate_queries(queries),
         )
 
     local_log: list[SATQuery] = []
