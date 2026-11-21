@@ -12,6 +12,7 @@ import pytest
 from griductive.agent import (
     AgentVerdictOracle,
     QueryPurpose,
+    SATQuery,
     TraceStatus,
     aggregate_queries,
     auto_solve,
@@ -379,11 +380,18 @@ def test_agl04_trace_privacy_never_leaks_hidden_clues_or_statuses():
 def test_shared_13a_walkthrough_and_on_step_streaming_callback():
     """Notion v0.2 shared 1.3a walkthrough + `on_step` streaming callback & `cumulative_stats`."""
     puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
-    oracle = AgentVerdictOracle(encode_kb, brute_force_test_solver)
+    recheck_log: list[SATQuery] = []
+    oracle = AgentVerdictOracle(encode_kb, brute_force_test_solver, query_log=recheck_log)
     game = GameSession(puzzle, oracle)
     streamed_steps = []
 
-    trace = auto_solve(game, encode_kb, brute_force_test_solver, on_step=streamed_steps.append)
+    trace = auto_solve(
+        game,
+        encode_kb,
+        brute_force_test_solver,
+        on_step=streamed_steps.append,
+        oracle_query_log=recheck_log,
+    )
     assert trace.terminal == TraceStatus.SOLVED
     assert tuple(streamed_steps) == trace.steps
 
@@ -429,10 +437,11 @@ def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_sol
         real_calls += 1
         return brute_force_test_solver(cnf, assumptions)
 
-    oracle = AgentVerdictOracle(encode_kb, counting_solver)
+    recheck_log: list[SATQuery] = []
+    oracle = AgentVerdictOracle(encode_kb, counting_solver, query_log=recheck_log)
     game = GameSession(puzzle, oracle)
 
-    trace = auto_solve(game, encode_kb, counting_solver)
+    trace = auto_solve(game, encode_kb, counting_solver, oracle_query_log=recheck_log)
     assert trace.terminal == TraceStatus.SOLVED
     assert trace.deduction_steps == 8
 
@@ -442,6 +451,31 @@ def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_sol
         assert len(recheck_qs) == 2  # (-v,) and (v,) assumptions evaluated during submit_verdict
 
     assert trace.total_sat_calls == real_calls == 104
+
+
+def test_auto_solve_without_oracle_query_log_leaves_oracle_unmutated_and_records_agent_queries():
+    """When oracle_query_log is omitted, trace records only agent classification queries (80 on 3x3),
+    and auto_solve never mutates oracle.query_log."""
+    puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
+    real_calls = 0
+
+    def counting_solver(cnf: CNF, assumptions: tuple[int, ...] = ()) -> SATResult:
+        nonlocal real_calls
+        real_calls += 1
+        return brute_force_test_solver(cnf, assumptions)
+
+    oracle = AgentVerdictOracle(encode_kb, counting_solver, query_log=None)
+    game = GameSession(puzzle, oracle)
+
+    trace = auto_solve(game, encode_kb, counting_solver)
+    assert trace.terminal == TraceStatus.SOLVED
+    assert trace.deduction_steps == 8
+    # 80 classify queries recorded in trace
+    assert trace.total_sat_calls == 80
+    # Solver was actually called 104 times (80 classify + 24 engine recheck)
+    assert real_calls == 104
+    # Crucial invariant: oracle.query_log was NOT mutated by auto_solve
+    assert oracle.query_log is None
 
 
 def test_agl04_pure_public_game_port_adapter_with_oracle_query_log():
