@@ -3,7 +3,7 @@
 Features:
 - Pure Python DPLL algorithm without third-party SAT solver dependencies.
 - Unit propagation to fixpoint with conflict detection.
-- Deterministic variable selection: smallest unassigned variable ID (1..variable_count).
+- Deterministic variable selection: smallest unassigned variable in an unsatisfied clause.
 - Deterministic branching order: branch True first, then False.
 - Complete assignment return for SAT results (all variables 1..variable_count).
 - Non-mutating assumptions support (input CNF clauses remain immutable).
@@ -161,24 +161,31 @@ class _DPLLRunner:
         if not self._propagate(assignment):
             return False
 
-        # Step 2: Check if all clauses are already satisfied
-        if self._is_satisfied(assignment):
-            # Complete the model for any unassigned variables deterministically (default True)
+        # Step 2: Deterministic variable selection: smallest unassigned variable ID among unsatisfied clauses
+        unassigned_vars: set[int] = set()
+        for clause in self.clauses:
+            clause_sat = False
+            clause_unassigned: list[int] = []
+            for lit in clause:
+                v = abs(lit)
+                if v in assignment:
+                    if assignment[v] == (lit > 0):
+                        clause_sat = True
+                        break
+                else:
+                    clause_unassigned.append(v)
+            if not clause_sat:
+                unassigned_vars.update(clause_unassigned)
+
+        if not unassigned_vars:
+            # All active clauses are satisfied!
+            # Complete the model for any free/unassigned variables deterministically (default True)
             for v in range(1, self.var_count + 1):
                 if v not in assignment:
                     assignment[v] = True
             return True
 
-        # Step 3: Deterministic variable selection: smallest unassigned variable ID
-        branch_var: int | None = None
-        for v in range(1, self.var_count + 1):
-            if v not in assignment:
-                branch_var = v
-                break
-
-        if branch_var is None:
-            # All variables assigned; check if satisfied
-            return self._is_satisfied(assignment)
+        branch_var = min(unassigned_vars)
 
         # Step 4: Branch True first, then False
         self.decisions += 1

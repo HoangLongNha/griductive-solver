@@ -103,6 +103,25 @@ def test_sat04_deterministic_smallest_variable_selection():
     assert res1.stats.backtracks == res2.stats.backtracks
     _validate_satisfying_model(cnf, res1.assignment)
 
+    # Distinguish selecting variable 1 before variable 2 under True-first branching:
+    # If 1 is chosen first: branch 1=True -> unit propagation forces 2=False. Model: {1: True, 2: False}
+    # If 2 is chosen first: branch 2=True -> unit propagation forces 1=False. Model: {1: False, 2: True}
+    cnf_ordering = CNF(clauses=((-1, -2),), primary_count=2, variable_count=2)
+    res_ordering = solve(cnf_ordering)
+    assert res_ordering.is_sat is True
+    assert res_ordering.assignment == {1: True, 2: False}
+    _validate_satisfying_model(cnf_ordering, res_ordering.assignment)
+
+
+def test_sparse_variable_count_no_recursion_error():
+    """Regression: large variable_count with sparse active variables avoids RecursionError."""
+    cnf = CNF(clauses=((1001, 1002),), primary_count=1002, variable_count=1002)
+    res = solve(cnf)
+    assert res.is_sat is True
+    assert res.assignment is not None
+    assert len(res.assignment) == 1002
+    _validate_satisfying_model(cnf, res.assignment)
+
 
 def test_sat05_backtracking_and_refutation():
     """SAT-05: Case requiring branch failure and backtracking to find SAT or prove UNSAT."""
