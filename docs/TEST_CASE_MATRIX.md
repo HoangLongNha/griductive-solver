@@ -190,13 +190,3 @@ Unit tests must be implemented by the owner when coding. This file contains spec
 | `DEMO-03` | Narration/subtitles Vietnamese/English, 5–10 phút | Assertion matches the stated condition; reproducible via pytest/GUI evidence |
 | `DEMO-04` | Link Drive anyone with link can view, thử incognito; KHÔNG YouTube | Assertion matches the stated condition; reproducible via pytest/GUI evidence |
 
-
-## Task 1.1 executable evidence
-
-- CT-01: tests/test_models.py::test_ct01_shared_types_and_fake_port.
-- CT-02: test_ct02_row_major covers all primary cells on 3x3 and 4x4; invalid cell/variable cases also covered.
-- CT-04: test_ct04_face_down_privacy and test_snapshot_clue_data_is_detached_and_recursively_immutable. Engine projection integration remains task 1.2.
-- CT-03: .github/workflows/ci.yml runs pytest on pull_request and main pushes (Python 3.11/3.13); real run evidence must be attached to PR.
-- Local result: python -m pytest -q -> 22 passed. Independent review and five-role contract approval are pending.
-
-For v0.2 integration, add nested snapshot mutation, timeout/cancel, stale-session events, complete classifier output, separate uniqueness/playability and per-purpose metrics checks in the owning tasks. See CONTRACTS_V02_PROPOSAL.md.
