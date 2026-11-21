@@ -67,15 +67,6 @@ def _revealed_clue_id(state: PublicState, cell: CellId | None) -> str | None:
     return None
 
 
-def _extract_oracle(game: PublicGamePort):
-    """Retrieve oracle adapter if present on the game port or session."""
-    if hasattr(game, "_oracle"):
-        return getattr(game, "_oracle")
-    if hasattr(game, "oracle"):
-        return getattr(game, "oracle")
-    return None
-
-
 def auto_solve(
     game: PublicGamePort,
     encoder,
@@ -90,26 +81,15 @@ def auto_solve(
     step so Controllers/GUIs can stream live updates without waiting for the
     entire run to finish.
 
-    `oracle_query_log` allows passing a shared query log channel with the engine's
-    VerdictOracle, enabling deduction steps and trace to capture verification
-    queries (Contracts §7) even when `game` is a pure `PublicGamePort` adapter
-    without exposing `_oracle`.
+    If `oracle_query_log` is provided, engine verdict verification queries
+    (QueryPurpose.VERDICT_RECHECK) recorded during `submit_verdict` (Contracts §7)
+    are incorporated into each step's `queries` and aggregated in `trace.totals`.
+    If omitted, the trace captures only agent classification queries.
     """
     run_start = perf_counter()
     steps: list[DeductionStep] = []
     cumulative_queries: list[SATQuery] = []
-
-    # Ensure engine verdict verification queries are tracked (Contracts §7)
-    oracle = _extract_oracle(game)
     oracle_log = oracle_query_log
-    if oracle_log is None and oracle is not None:
-        oracle_log = getattr(oracle, "query_log", None)
-        if oracle_log is None:
-            try:
-                oracle_log = []
-                setattr(oracle, "query_log", oracle_log)
-            except (AttributeError, TypeError):
-                oracle_log = None
 
     while True:
         step_start = perf_counter()
