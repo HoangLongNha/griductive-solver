@@ -83,6 +83,33 @@ def test_stat04_metrics_non_negative_and_consistent():
     assert res1.stats.backtracks == res2.stats.backtracks
 
 
+@pytest.mark.parametrize(
+    ("clauses", "expected_sat", "expected_counts"),
+    [
+        (((-1, 2), (-1, -2), (1, 2)), True, (1, 2, 1)),
+        (((1, 2), (1, -2), (-1, 2), (-1, -2)), False, (1, 2, 2)),
+    ],
+)
+def test_exact_counts_for_sat_and_unsat(clauses, expected_sat, expected_counts):
+    cnf = CNF(clauses=clauses, primary_count=2, variable_count=2)
+    result = solve(cnf)
+
+    assert result.is_sat is expected_sat
+    assert (result.stats.decisions, result.stats.propagations, result.stats.backtracks) == expected_counts
+
+
+def test_free_variables_do_not_increase_unsat_search():
+    cnf = CNF(
+        clauses=((24, 25), (24, -25), (-24, 25), (-24, -25)),
+        primary_count=25,
+        variable_count=25,
+    )
+    result = solve(cnf)
+
+    assert result.is_sat is False
+    assert (result.stats.decisions, result.stats.propagations, result.stats.backtracks) == (1, 2, 2)
+
+
 # =====================================================================
 # Additional coverage for assumptions & statistics utilities
 # =====================================================================

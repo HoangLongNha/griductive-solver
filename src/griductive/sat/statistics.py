@@ -7,13 +7,14 @@ Metric definitions (CONTRACTS §4 & §7):
   unit clause resolution during unit propagation.
 - `backtracks`: The count of branch refutations causing the solver to undo an
   assignment and attempt the opposite polarity or return to a parent decision.
+  If both branches fail, one decision contributes two backtracks.
 - `runtime_s`: The wall-clock execution time in fractional seconds measured via
   `time.perf_counter()` for a single `solve` query.
 """
 from __future__ import annotations
 
 import time
-from typing import Iterable, Sequence
+from typing import Iterable
 
 from griductive.models import SATStats
 
