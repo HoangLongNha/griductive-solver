@@ -1,4 +1,5 @@
-"""Deductive logic agent: public KB builder and entailment classification (VT4)."""
+"""Deductive logic agent: KB, entailment, deduction loop and trace (VT4)."""
+from .deduction import auto_solve, next_forced_verdict, select_forced_verdict
 from .entailment import AgentVerdictOracle, classify, classify_kb, classify_one
 from .knowledge_base import (
     CNFMetrics,
@@ -9,17 +10,34 @@ from .knowledge_base import (
     run_sat_query,
     validate_public_state,
 )
+from .trace import (
+    AggregatedSATStats,
+    DeductionStep,
+    DeductionTrace,
+    TraceStatus,
+    aggregate_queries,
+    build_trace,
+)
 
 __all__ = [
     "AgentVerdictOracle",
+    "AggregatedSATStats",
     "CNFMetrics",
+    "DeductionStep",
+    "DeductionTrace",
     "KnowledgeBase",
     "QueryPurpose",
     "SATQuery",
+    "TraceStatus",
+    "aggregate_queries",
+    "auto_solve",
     "build_kb",
+    "build_trace",
     "classify",
     "classify_kb",
     "classify_one",
+    "next_forced_verdict",
     "run_sat_query",
+    "select_forced_verdict",
     "validate_public_state",
 ]
