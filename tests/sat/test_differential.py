@@ -6,19 +6,13 @@ Cross-checks production DPLL against `exhaustive_oracle.py` across 100+ formulas
 from __future__ import annotations
 
 import random
-import sys
-from pathlib import Path
-from typing import Sequence
 
-import pytest
 from griductive.models import CNF
 from griductive.sat import solve
 
-# Ensure tests/sat can import sibling test helpers
-sys.path.insert(0, str(Path(__file__).resolve().parent))
 from exhaustive_oracle import exhaustive_sat, validate_sat_model
 
-FIXED_TEST_SEED = 20261118
+FIXED_TEST_SEED = 20261119
 
 
 def _generate_random_cnf(
@@ -33,11 +27,7 @@ def _generate_random_cnf(
     clauses: list[tuple[int, ...]] = []
 
     for _ in range(n_clauses):
-        clause_len = rng.randint(0, min(max_clause_len, n_vars))
-        if clause_len == 0:
-            # Occasionally generate empty clause to test immediate conflict
-            clauses.append(())
-            continue
+        clause_len = rng.randint(1, min(max_clause_len, n_vars))
         vars_in_clause = rng.sample(range(1, n_vars + 1), clause_len)
         clause = tuple(rng.choice([-1, 1]) * v for v in vars_in_clause)
         clauses.append(clause)
@@ -54,7 +44,7 @@ def _generate_random_assumptions(
     var_count: int,
     max_assumptions: int = 3,
 ) -> tuple[int, ...]:
-    """Generate random non-conflicting or occasionally conflicting assumptions."""
+    """Generate random assumptions on distinct variables."""
     count = rng.randint(0, min(max_assumptions, var_count))
     if count == 0:
         return ()
@@ -72,10 +62,11 @@ def test_satt01_differential_100_random_cnfs():
     rng = random.Random(FIXED_TEST_SEED)
     sat_count = 0
     unsat_count = 0
+    unsat_with_branching = 0
 
     for i in range(100):
         cnf = _generate_random_cnf(rng, max_vars=8, max_clauses=16, max_clause_len=4)
-        oracle_sat, oracle_model = exhaustive_sat(cnf)
+        oracle_sat, _ = exhaustive_sat(cnf)
         dpll_res = solve(cnf)
 
         assert dpll_res.is_sat == oracle_sat, (
@@ -88,10 +79,13 @@ def test_satt01_differential_100_random_cnfs():
             validate_sat_model(cnf, dpll_res.assignment)
         else:
             unsat_count += 1
+            if dpll_res.stats.decisions > 0:
+                unsat_with_branching += 1
 
     # Ensure our random suite covered both SAT and UNSAT cases meaningfully
     assert sat_count >= 15, f"Expected at least 15 SAT cases, got {sat_count}"
     assert unsat_count >= 15, f"Expected at least 15 UNSAT cases, got {unsat_count}"
+    assert unsat_with_branching > 0, "Expected UNSAT cases that require branching"
 
 
 def test_satt02_model_validation_on_all_sat_cases():

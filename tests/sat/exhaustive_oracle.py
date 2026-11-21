@@ -1,7 +1,7 @@
 """Exhaustive brute-force SAT oracle for differential testing (task 3.3).
 
 This oracle is strictly test-only and explores all 2^n truth assignments
-for small formulas (<= 12 variables). It is NEVER used in production code.
+for small formulas (<= 16 variables). It is NEVER used in production code.
 """
 from __future__ import annotations
 
