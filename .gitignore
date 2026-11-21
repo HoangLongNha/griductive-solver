@@ -6,7 +6,6 @@ __pycache__/
 build/
 dist/
 
-# Local-only visual production notes and QA
+# Local-only visual production notes
 CONTEXT.md
 docs/art-direction/
-tests/test_web_ui.py

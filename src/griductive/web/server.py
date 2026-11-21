@@ -51,7 +51,7 @@ def create_server(
         def _serve_static(self, rel_path: str) -> None:
             clean = "index.html" if rel_path in ("", "/") else rel_path.lstrip("/")
             target = (static_path / clean).resolve()
-            if not str(target).startswith(str(static_path)) or not target.is_file():
+            if not target.is_relative_to(static_path) or not target.is_file():
                 self._send_json(HTTPStatus.NOT_FOUND, {"error": "Not found"})
                 return
             mime, _ = mimetypes.guess_type(str(target))

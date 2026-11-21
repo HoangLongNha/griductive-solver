@@ -259,12 +259,37 @@ class FakeController:
         for path in sorted(self._puzzles_dir.rglob("*.json")):
             data = json.loads(path.read_text(encoding="utf-8"))
             if data.get("id") == puzzle_id or path.stem == puzzle_id:
+                initial = self._validate_raw_puzzle(data)
+                candidate_state = self._build_public_state(data, initial)
+                payload = self._serialize_public_state(candidate_state, trace=[])
                 self._raw_puzzle = data
-                self._revealed = set(data.get("initial_revealed", []))
+                self._revealed = initial
                 self._deduction_steps = []
                 self._step_counter = 0
-                return self.get_public_state_dict()
+                return payload
         raise FileNotFoundError(f"Puzzle '{puzzle_id}' not found")
+
+    def _validate_raw_puzzle(self, data: dict[str, Any]) -> set[CellId]:
+        if not isinstance(data, dict):
+            raise ValueError("Puzzle JSON must be an object")
+        size = int(data["size"])
+        _ = str(data["id"])
+        raw_cards = data["cards"]
+        if not isinstance(raw_cards, list) or len(raw_cards) != size * size:
+            raise ValueError("Puzzle cards count does not match board size")
+        cells: set[CellId] = set()
+        for raw_card in raw_cards:
+            cid = str(raw_card["cell"])
+            _ = str(raw_card["name"])
+            _ = str(raw_card["profession"])
+            Status(raw_card["hidden_status"])
+            clue = raw_card["clue"]
+            _ = (str(clue["id"]), str(clue["kind"]))
+            cells.add(cid)
+        initial = set(data["initial_revealed"])
+        if not initial or not initial <= cells:
+            raise ValueError("initial_revealed must reference valid puzzle cells")
+        return initial
 
     def restart(self) -> dict[str, Any]:
         self._revealed = set(self._raw_puzzle.get("initial_revealed", []))
@@ -272,11 +297,17 @@ class FakeController:
         self._step_counter = 0
         return self.get_public_state_dict()
 
-    def _build_public_state(self) -> PublicState:
+    def _build_public_state(
+        self,
+        raw_puzzle: dict[str, Any] | None = None,
+        revealed: set[CellId] | None = None,
+    ) -> PublicState:
+        source = self._raw_puzzle if raw_puzzle is None else raw_puzzle
+        shown_cells = self._revealed if revealed is None else revealed
         cards: list[PublicCard] = []
-        for raw_card in self._raw_puzzle.get("cards", []):
+        for raw_card in source.get("cards", []):
             cid = raw_card["cell"]
-            is_rev = cid in self._revealed
+            is_rev = cid in shown_cells
             if is_rev:
                 clue_raw = raw_card["clue"]
                 clue = Clue(id=clue_raw["id"], kind=clue_raw["kind"], data=clue_raw)
@@ -295,13 +326,16 @@ class FakeController:
                 )
             )
         return PublicState(
-            puzzle_id=self._raw_puzzle["id"],
-            size=int(self._raw_puzzle["size"]),
+            puzzle_id=source["id"],
+            size=int(source["size"]),
             cards=tuple(cards),
         )
 
-    def get_public_state_dict(self) -> dict[str, Any]:
-        state = self._build_public_state()
+    def _serialize_public_state(
+        self,
+        state: PublicState,
+        trace: list[dict[str, Any]],
+    ) -> dict[str, Any]:
         names = {c.cell: c.name for c in state.cards}
         serialized_cards: list[dict[str, Any]] = []
         for card in state.cards:
@@ -332,8 +366,11 @@ class FakeController:
             "total_count": total,
             "solved": revealed_count == total,
             "cards": serialized_cards,
-            "trace": list(self._deduction_steps),
+            "trace": list(trace),
         }
+
+    def get_public_state_dict(self) -> dict[str, Any]:
+        return self._serialize_public_state(self._build_public_state(), self._deduction_steps)
 
     def submit_verdict(self, cell: CellId, status_str: str) -> dict[str, Any]:
         status = Status(status_str)

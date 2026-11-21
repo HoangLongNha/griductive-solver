@@ -188,6 +188,7 @@ function CharacterDocument({
         tabIndex={0}
         aria-label={`${card.cell} ${card.name} (${card.profession})`}
         onKeyDown={(e) => {
+          if (e.target !== e.currentTarget) return;
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             onSelectDocument(card.cell);
