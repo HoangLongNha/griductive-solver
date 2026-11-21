@@ -14,14 +14,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from griductive.agent import (
     AgentVerdictOracle,
     HintOutcome,
-    QueryPurpose,
+    SATQuery,
     TraceStatus,
     aggregate_queries,
     auto_solve,
@@ -32,7 +31,6 @@ from griductive.game.engine import GameSession, PuzzleValidationError, load_puzz
 from griductive.logic.encoder import encode_full_clues, encode_kb
 from griductive.models import (
     CNF,
-    CellId,
     Clue,
     Inference,
     PublicCard,
@@ -46,7 +44,6 @@ from griductive.validation.uniqueness import (
     UniquenessStatus,
     analyze_unique_cnf,
     analyze_unique_complete,
-    check_unique_cnf,
     check_unique_complete,
 )
 
@@ -120,11 +117,17 @@ def test_agi01_full_solve_playable_puzzles_with_real_dpll(
     puzzle_path = PUZZLES_DIR / puzzle_relpath
     puzzle = load_puzzle(puzzle_path)
 
+    recheck_log: list[SATQuery] = []
     counting_solver = CountingSolver(solve)
-    oracle = AgentVerdictOracle(encode_kb, counting_solver)
+    oracle = AgentVerdictOracle(encode_kb, counting_solver, query_log=recheck_log)
     session = GameSession(puzzle, oracle)
 
-    trace = auto_solve(session, encode_kb, counting_solver)
+    trace = auto_solve(
+        session,
+        encode_kb,
+        counting_solver,
+        oracle_query_log=recheck_log,
+    )
 
     # 1. Terminal state assertions
     assert trace.status == TraceStatus.SOLVED
@@ -162,7 +165,8 @@ def test_agi01_full_solve_playable_puzzles_with_real_dpll(
 def test_agi01_streaming_callback_and_audit_completeness():
     """Verify on_step callback receives valid DeductionStep records sequentially."""
     puzzle = load_puzzle(PUZZLES_DIR / "3x3" / "tutorial_3x3.json")
-    oracle = AgentVerdictOracle(encode_kb, solve)
+    recheck_log: list[SATQuery] = []
+    oracle = AgentVerdictOracle(encode_kb, solve, query_log=recheck_log)
     session = GameSession(puzzle, oracle)
 
     streamed_steps = []
@@ -170,7 +174,13 @@ def test_agi01_streaming_callback_and_audit_completeness():
     def on_step(step):
         streamed_steps.append(step)
 
-    trace = auto_solve(session, encode_kb, solve, on_step=on_step)
+    trace = auto_solve(
+        session,
+        encode_kb,
+        solve,
+        on_step=on_step,
+        oracle_query_log=recheck_log,
+    )
 
     assert trace.status == TraceStatus.SOLVED
     assert len(streamed_steps) == 8

@@ -243,5 +243,5 @@ Trong quá trình phát triển phân hệ suy diễn logic (VT4), các câu l�
 
 ### 6.2 Tài liệu tham khảo
 1. **Russell, S., & Norvig, P.** (2020). *Artificial Intelligence: A Modern Approach (4th ed.)*. Pearson. (Chương 7: Logical Agents, Propositional Logic & Resolution/DPLL).
-2. **Biere, A., Heule, M., van Maaren, H., & Walsh, T.** (Eds.). (2009). *Handbook of Satisfiability*. IOS Press. (Chương về All-SAT and Model Enumeration with Blocking Clauses).
-3. **Docs nội bộ dự án Griductive Solver:** `docs/CONTRACTS.md`, `docs/ARCHITECTURE.md`.
+2. **Biere, A., Heule, M., van Maaren, H., & Walsh, T.** (Eds.). (2009). *Handbook of Satisfiability*. IOS Press. (Chapter 20: Model Counting, Carla P. Gomes, Ashish Sabharwal, Bart Selman — nguyên lý All-SAT và Blocking Clauses).
+3. **Tài liệu đặc tả hợp đồng nội bộ dự án Griductive Solver:** `docs/CONTRACTS.md` (Quy chuẩn ranh giới dữ liệu công khai §5 và kiểm toán thống kê §7).
