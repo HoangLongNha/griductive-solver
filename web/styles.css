@@ -1,0 +1,1156 @@
+:root {
+  --warm-cream: #E8DCC3;
+  --aged-paper: #D3C1A1;
+  --warm-beige: #B9A58B;
+  --terracotta: #A66D53;
+  --dark-walnut: #49352F;
+  --dusty-navy: #39465B;
+  --deep-blue: #27344C;
+  --muted-olive: #77775C;
+  --charcoal: #343333;
+  --warm-highlight: #E6CFA0;
+
+  --font-serif: "Crimson Pro", Georgia, serif;
+  --font-typewriter: "Courier Prime", "Courier New", monospace;
+  --font-hand: "Caveat", Georgia, cursive;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--dark-walnut);
+  color: var(--charcoal);
+  font-family: var(--font-typewriter);
+  line-height: 1.38;
+}
+
+button,
+select {
+  font-family: inherit;
+  border-radius: 0;
+}
+
+button:focus-visible,
+select:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--warm-highlight);
+  outline-offset: 2px;
+}
+
+/* ============================================================
+   VIEWPORT & 16:9 CAMERA RIG (STATE A -> B -> C)
+   ============================================================ */
+.game-viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2b211d;
+}
+
+/* Maintains exact 16:9 alignment with the 1920x1080 room layers while covering viewport */
+.room-canvas {
+  position: relative;
+  width: max(100vw, 177.7778vh);
+  height: max(100vh, 56.25vw);
+  flex-shrink: 0;
+  container-type: inline-size;
+  transform-origin: 62.05% 41.45%;
+  transform: translate(0%, 0%) scale(1);
+  transition: transform 620ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.room-canvas.focused {
+  /* Moves board center (62.05%, 41.45%) to viewport center (50%, 50%) and zooms into the wall */
+  transform: translate(-12.05%, 8.55%) scale(2.18);
+}
+
+.env-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+.env-background { z-index: 1; }
+.env-midground { z-index: 3; }
+.env-foreground { z-index: 5; }
+
+/* ============================================================
+   STATE A — ROOM HOTSPOTS & MINIATURE WALL BOARD
+   ============================================================ */
+.wall-board-hotspot {
+  position: absolute;
+  left: 47.55%;
+  top: 25.19%;
+  width: 27.71%;
+  height: 34.07%;
+  z-index: 2;
+  padding: 0.55% 0.65%;
+  background: transparent;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transform-origin: center center;
+  transform: perspective(57.29cqi) rotateZ(-1.55deg) rotateY(-15.5deg);
+  transition: border-color 220ms ease, background-color 220ms ease;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.wall-board-hotspot:hover {
+  border-color: rgba(230, 207, 160, 0.72);
+  background: rgba(230, 207, 160, 0.05);
+}
+
+.wall-board-hotspot.dimmed {
+  pointer-events: none;
+}
+
+.wall-board-mini-grid {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  gap: 0.32cqi;
+  padding: 0.2cqi;
+  opacity: 0.94;
+  pointer-events: none;
+}
+
+.mini-pinned-note {
+  min-width: 0;
+  min-height: 0;
+  background-color: var(--aged-paper);
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 13%,
+      rgba(166, 109, 83, 0.22) 13%,
+      rgba(166, 109, 83, 0.22) 14.5%,
+      transparent 14.5%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 5px,
+      rgba(73, 53, 47, 0.11) 5px,
+      rgba(73, 53, 47, 0.11) 6px
+    );
+  border: 1px solid var(--dark-walnut);
+  box-shadow: 1px 2px 3px rgba(20, 24, 34, 0.45);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0.25cqi 0.3cqi 0.28cqi;
+  position: relative;
+  overflow: hidden;
+  text-align: left;
+}
+
+.mini-pinned-note.revealed {
+  background-color: var(--warm-cream);
+}
+
+.mini-pinned-note.criminal {
+  border-color: var(--terracotta);
+}
+
+.mini-pinned-note.innocent {
+  border-color: var(--dusty-navy);
+}
+
+.mini-pinned-note:nth-child(odd) { transform: rotate(-1.1deg); }
+.mini-pinned-note:nth-child(even) { transform: rotate(1deg); }
+
+.mini-pin-dot {
+  width: 0.32cqi;
+  height: 0.32cqi;
+  min-width: 4px;
+  min-height: 4px;
+  border-radius: 50%;
+  background: var(--warm-highlight);
+  border: 1px solid var(--dark-walnut);
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.mini-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 2px;
+  width: 100%;
+  margin-bottom: 0.12cqi;
+  font-size: 0.44cqi;
+  line-height: 1;
+}
+
+.mini-note-code {
+  font-weight: 700;
+  color: var(--dark-walnut);
+  letter-spacing: 0.02em;
+}
+
+.mini-note-glyph {
+  font-weight: 700;
+  color: var(--muted-olive);
+  border: 1px solid rgba(73, 53, 47, 0.38);
+  padding: 0 0.14cqi;
+  line-height: 1.05;
+}
+
+.mini-pinned-note.criminal .mini-note-glyph {
+  color: var(--terracotta);
+  border-color: var(--terracotta);
+}
+
+.mini-pinned-note.innocent .mini-note-glyph {
+  color: var(--dusty-navy);
+  border-color: var(--dusty-navy);
+}
+
+.mini-note-body {
+  display: flex;
+  align-items: stretch;
+  gap: 0.28cqi;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.mini-thumb-frame,
+.mini-seal-box {
+  width: 46%;
+  height: 100%;
+  min-height: 0;
+  border: 1px solid rgba(73, 53, 47, 0.65);
+  background: #DFD2B8;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transform: rotate(-1.4deg);
+}
+
+.mini-seal-box {
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(73, 53, 47, 0.08) 0px,
+    rgba(73, 53, 47, 0.08) 3px,
+    transparent 3px,
+    transparent 6px
+  );
+}
+
+.mini-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 15%;
+  display: block;
+}
+
+.mini-seal {
+  font-family: var(--font-serif);
+  font-size: 0.65cqi;
+  font-weight: 700;
+  color: var(--dark-walnut);
+}
+
+.mini-note-lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.16cqi;
+}
+
+.mini-note-name {
+  font-family: var(--font-hand);
+  font-size: 0.56cqi;
+  font-weight: 700;
+  color: var(--dark-walnut);
+  line-height: 0.95;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid rgba(73, 53, 47, 0.35);
+}
+
+.mini-ink-bar {
+  display: block;
+  height: 0.1cqi;
+  min-height: 1.5px;
+  background: rgba(52, 51, 51, 0.52);
+  border-radius: 1px;
+}
+
+.mini-ink-bar.long { width: 92%; }
+.mini-ink-bar.med { width: 68%; }
+
+.mini-ink-bar.short {
+  width: auto;
+  height: auto;
+  background: transparent;
+  font-size: 0.44cqi;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--terracotta);
+}
+
+.wall-board-hotspot.size-5 .mini-note-head {
+  font-size: 0.36cqi;
+}
+
+.wall-board-hotspot.size-5 .mini-note-name {
+  font-size: 0.46cqi;
+}
+
+.wall-board-hotspot.size-5 .mini-pinned-note {
+  padding: 0.18cqi 0.22cqi;
+}
+
+.board-hover-tag {
+  position: absolute;
+  bottom: -24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 10px;
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  color: var(--dark-walnut);
+  font-family: var(--font-hand);
+  font-size: 0.95rem;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  box-shadow: 2px 2px 0 rgba(73, 53, 47, 0.35);
+  transition: opacity 180ms ease;
+  pointer-events: none;
+}
+
+.wall-board-hotspot:hover .board-hover-tag,
+.wall-board-hotspot:focus-visible .board-hover-tag {
+  opacity: 1;
+}
+
+/* Interactive Room Objects (State A) */
+.room-hotspot {
+  position: absolute;
+  z-index: 6;
+  background: transparent;
+  border: 1.5px dashed transparent;
+  cursor: pointer;
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+
+.room-hotspot:hover,
+.room-hotspot:focus-visible {
+  border-color: rgba(230, 207, 160, 0.65);
+  background: rgba(230, 207, 160, 0.08);
+}
+
+.hotspot-phone {
+  left: 22.5%;
+  top: 62%;
+  width: 9%;
+  height: 12.5%;
+}
+
+.hotspot-typewriter {
+  left: 42%;
+  top: 58.5%;
+  width: 14.5%;
+  height: 15.5%;
+}
+
+.hotspot-folder {
+  left: 11.5%;
+  top: 86%;
+  width: 22.5%;
+  height: 12.5%;
+}
+
+.hotspot-magnifier {
+  left: 72%;
+  top: 87.5%;
+  width: 18%;
+  height: 11.5%;
+}
+
+.hotspot-tooltip {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 6px);
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  color: var(--dark-walnut);
+  font-family: var(--font-hand);
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  box-shadow: 2px 2px 0 rgba(73, 53, 47, 0.3);
+  transition: opacity 160ms ease;
+}
+
+.room-hotspot:hover .hotspot-tooltip,
+.room-hotspot:focus-visible .hotspot-tooltip {
+  opacity: 1;
+}
+
+/* Quiet Room Title Slip in State A */
+.room-title-slip {
+  position: fixed;
+  top: 16px;
+  left: 18px;
+  z-index: 12;
+  padding: 8px 14px;
+  background: var(--warm-cream);
+  border: 2px solid var(--dark-walnut);
+  box-shadow: 3px 3px 0 rgba(73, 53, 47, 0.35);
+  transition: opacity 280ms ease, transform 280ms ease;
+}
+
+.room-title-slip.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+
+.room-title-slip h1 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.2rem;
+  color: var(--dark-walnut);
+  line-height: 1.1;
+}
+
+.room-title-slip p {
+  margin: 2px 0 0;
+  font-size: 0.72rem;
+  color: var(--muted-olive);
+}
+
+/* ============================================================
+   STATE C — PHYSICAL INVESTIGATION BOARD OVERLAY (ON THE WALL)
+   ============================================================ */
+.investigation-stage {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.96);
+  transition: opacity 320ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.investigation-stage.visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+/* Physical walnut-framed board resting over the zoomed-in wall board */
+.physical-board {
+  position: relative;
+  width: min(1040px, 86vw);
+  max-height: calc(100vh - 36px);
+  display: flex;
+  flex-direction: column;
+  background-color: var(--deep-blue);
+  background-image:
+    radial-gradient(circle at 22% 18%, rgba(230, 207, 160, 0.08), transparent 55%),
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.015) 0px,
+      rgba(255, 255, 255, 0.015) 1px,
+      transparent 1px,
+      transparent 4px
+    );
+  border: 10px solid var(--dark-walnut);
+  box-shadow:
+    inset 0 0 36px rgba(15, 20, 32, 0.55),
+    0 14px 36px rgba(26, 20, 17, 0.65);
+  padding: 12px 16px 14px;
+}
+
+.physical-board::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1.5px solid rgba(211, 193, 161, 0.22);
+  pointer-events: none;
+}
+
+/* Contextual Paper Tabs along Top Wood Frame */
+.board-ribbon {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(211, 193, 161, 0.28);
+}
+
+.board-ribbon-left,
+.board-ribbon-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+.paper-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 4px 10px;
+  background: var(--aged-paper);
+  border: 1.5px solid var(--dark-walnut);
+  color: var(--dark-walnut);
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 2px 2px 0 rgba(20, 22, 28, 0.45);
+  transition: transform 120ms ease, background-color 120ms ease;
+}
+
+.paper-tab:hover:not(:disabled) {
+  background: var(--warm-cream);
+  transform: translateY(-1px);
+}
+
+.paper-tab:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.paper-tab.primary {
+  background: var(--warm-cream);
+  border-color: var(--charcoal);
+}
+
+.paper-tab.oracle-tab {
+  background: var(--warm-cream);
+  border-color: var(--terracotta);
+  padding-left: 4px;
+}
+
+.oracle-mini-portrait {
+  width: 24px;
+  height: 24px;
+  object-fit: cover;
+  border: 1px solid var(--dark-walnut);
+  background: var(--aged-paper);
+}
+
+.case-select-note {
+  height: 32px;
+  max-width: 220px;
+  padding: 0 8px;
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  color: var(--charcoal);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.board-tally-slip {
+  padding: 4px 9px;
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--dark-walnut);
+}
+
+.board-tally-slip.solved {
+  background: var(--muted-olive);
+  color: var(--warm-cream);
+}
+
+/* Scrollable Cork/Navy Pin Surface + SVG Strings Layer */
+.board-surface-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 10px 10px;
+}
+
+.evidence-strings-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.evidence-string {
+  fill: none;
+  stroke: var(--aged-paper);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  opacity: 0.34;
+  transition: opacity 220ms ease, stroke 220ms ease, stroke-width 220ms ease;
+}
+
+.evidence-string.dimmed {
+  opacity: 0.14;
+}
+
+.evidence-string.active {
+  stroke: var(--terracotta);
+  stroke-width: 2.5;
+  opacity: 0.94;
+  stroke-dasharray: 420;
+  stroke-dashoffset: 0;
+  animation: string-draw 420ms ease-out both;
+}
+
+@keyframes string-draw {
+  from { stroke-dashoffset: 420; }
+  to { stroke-dashoffset: 0; }
+}
+
+.board-documents-grid {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 14px 12px;
+  align-items: start;
+}
+
+.board-axis-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-hand);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--warm-highlight);
+  user-select: none;
+}
+
+/* ============================================================
+   PHYSICAL CHARACTER DOCUMENT (PINNED PHOTO + NOTES)
+   ============================================================ */
+.doc-slot {
+  position: relative;
+  min-width: 0;
+}
+
+/* Natural subtle variation in placement */
+.doc-slot:nth-child(5n + 1) .evidence-doc { transform: rotate(-0.85deg); }
+.doc-slot:nth-child(5n + 2) .evidence-doc { transform: rotate(0.65deg) translateY(2px); }
+.doc-slot:nth-child(5n + 3) .evidence-doc { transform: rotate(-0.4deg); }
+.doc-slot:nth-child(5n + 4) .evidence-doc { transform: rotate(0.9deg) translateY(-1px); }
+
+.evidence-doc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 15px 10px 9px 14px;
+  background-color: var(--aged-paper);
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent 10px,
+      rgba(166, 109, 83, 0.28) 10px,
+      rgba(166, 109, 83, 0.28) 11.5px,
+      transparent 11.5px
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0px,
+      transparent 17px,
+      rgba(73, 53, 47, 0.085) 17px,
+      rgba(73, 53, 47, 0.085) 18px
+    ),
+    linear-gradient(
+      135deg,
+      rgba(232, 220, 195, 0.35) 0%,
+      rgba(185, 165, 139, 0.18) 100%
+    );
+  border: 1.5px solid var(--dark-walnut);
+  box-shadow: 2px 4px 7px rgba(15, 20, 32, 0.48);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 160ms ease, background-color 160ms ease;
+  cursor: pointer;
+}
+
+.evidence-doc.revealed {
+  background-color: var(--warm-cream);
+}
+
+.evidence-doc:hover {
+  transform: translateY(-3px) rotate(0deg) !important;
+  box-shadow: 4px 7px 14px rgba(15, 20, 32, 0.58);
+}
+
+.evidence-doc.selected {
+  transform: translateY(-3px) rotate(0deg) !important;
+  border-color: var(--warm-highlight);
+  box-shadow: 0 0 0 2px var(--warm-highlight), 4px 8px 14px rgba(15, 20, 32, 0.62);
+}
+
+.evidence-doc.clue-target {
+  border: 2px dashed var(--terracotta);
+  background-color: #EFE1C6;
+}
+
+.evidence-doc.hint-target {
+  border: 2px dashed var(--warm-highlight);
+}
+
+.doc-pin {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  transition: transform 180ms ease;
+}
+
+.evidence-doc.selected .doc-pin,
+.evidence-doc:hover .doc-pin {
+  transform: translateX(-50%) scale(1.18);
+}
+
+.doc-meta-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.doc-coord {
+  padding: 1px 5px;
+  background: var(--dark-walnut);
+  color: var(--warm-cream);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.doc-stamp {
+  padding: 1px 5px;
+  border: 1.5px solid;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.doc-stamp.criminal {
+  color: var(--terracotta);
+  border-color: var(--terracotta);
+  transform: rotate(-3deg);
+}
+
+.doc-stamp.innocent {
+  color: var(--dusty-navy);
+  border-color: var(--dusty-navy);
+  transform: rotate(2.5deg);
+}
+
+.doc-stamp.sealed {
+  color: var(--muted-olive);
+  border-color: var(--muted-olive);
+}
+
+.doc-photo-frame {
+  width: 100%;
+  height: clamp(78px, 9.5vw, 118px);
+  border: 1.5px solid var(--dark-walnut);
+  background: #DFD2B8;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+}
+
+.doc-photo-frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center 18%;
+}
+
+.doc-sealed-cover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(73, 53, 47, 0.05) 0px,
+    rgba(73, 53, 47, 0.05) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  color: var(--dark-walnut);
+}
+
+.doc-sealed-mark {
+  font-family: var(--font-serif);
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+.doc-hand-name {
+  font-family: var(--font-hand);
+  font-size: 1.18rem;
+  font-weight: 700;
+  color: var(--dark-walnut);
+  line-height: 1.02;
+}
+
+.doc-prof {
+  font-size: 0.65rem;
+  color: var(--muted-olive);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.doc-ink-rule {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.doc-ink-glyph {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--terracotta);
+  line-height: 1;
+}
+
+.doc-ink-stroke {
+  flex: 1;
+  height: 1px;
+  border-bottom: 1px dashed rgba(73, 53, 47, 0.45);
+}
+
+.doc-clue-note {
+  padding: 5px 6px;
+  background: var(--aged-paper);
+  border-left: 3px solid var(--terracotta);
+  font-size: 0.69rem;
+  color: var(--charcoal);
+}
+
+.doc-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-top: 5px;
+}
+
+.doc-stamp-btn {
+  padding: 4px 2px;
+  font-size: 0.61rem;
+  font-weight: 700;
+  border: 1.5px solid;
+  background: var(--warm-cream);
+  cursor: pointer;
+}
+
+.doc-stamp-btn.criminal {
+  color: var(--terracotta);
+  border-color: var(--terracotta);
+}
+
+.doc-stamp-btn.criminal:hover:not(:disabled) {
+  background: var(--terracotta);
+  color: var(--warm-cream);
+}
+
+.doc-stamp-btn.innocent {
+  color: var(--dusty-navy);
+  border-color: var(--dusty-navy);
+}
+
+.doc-stamp-btn.innocent:hover:not(:disabled) {
+  background: var(--dusty-navy);
+  color: var(--warm-cream);
+}
+
+.doc-stamp-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   CONTEXTUAL PINNED DISPATCH NOTE (AT BOTTOM OF BOARD)
+   ============================================================ */
+.board-dispatch-slip {
+  position: relative;
+  z-index: 4;
+  margin-top: 8px;
+  padding: 7px 12px;
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.77rem;
+  box-shadow: 2px 3px 0 rgba(20, 22, 28, 0.35);
+}
+
+.board-dispatch-slip.CONTRADICTED {
+  border-color: var(--terracotta);
+  background: #EAD8CA;
+}
+
+.board-dispatch-slip.NOT_PROVABLE {
+  background: var(--aged-paper);
+}
+
+.board-dispatch-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dispatch-thumb {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+  border: 1px solid var(--dark-walnut);
+  background: var(--aged-paper);
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   PHYSICAL CHARACTER DOSSIER (SLIDE-OUT AGED FOLDER)
+   ============================================================ */
+.dossier-drawer {
+  position: fixed;
+  top: 22px;
+  right: 22px;
+  bottom: 22px;
+  width: min(380px, calc(100vw - 32px));
+  z-index: 30;
+  background: var(--aged-paper);
+  border: 3px solid var(--dark-walnut);
+  box-shadow: -6px 8px 22px rgba(20, 24, 34, 0.55);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 18px;
+  overflow-y: auto;
+  animation: dossier-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes dossier-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.dossier-folder-tab {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--dark-walnut);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.dossier-folder-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-olive);
+}
+
+.dossier-photo-sheet {
+  background: var(--warm-cream);
+  border: 2px solid var(--dark-walnut);
+  padding: 8px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.dossier-photo-sheet img,
+.dossier-photo-placeholder {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  border: 1.5px solid var(--dark-walnut);
+  background: var(--aged-paper);
+  object-fit: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dossier-name-hand {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 1.75rem;
+  color: var(--dark-walnut);
+  line-height: 1;
+}
+
+.dossier-section {
+  background: var(--warm-cream);
+  border: 1.5px solid var(--dark-walnut);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+.dossier-section h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-serif);
+  font-size: 0.95rem;
+  color: var(--dark-walnut);
+  border-bottom: 1px dashed var(--warm-beige);
+  padding-bottom: 4px;
+}
+
+.target-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.target-paper-chip {
+  padding: 2px 7px;
+  background: var(--aged-paper);
+  border: 1px solid var(--dark-walnut);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+/* ============================================================
+   INVESTIGATION LEDGER NOTEBOOK OVERLAY
+   ============================================================ */
+.ledger-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(39, 52, 76, 0.56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ledger-book {
+  width: min(640px, 100%);
+  max-height: 82vh;
+  overflow-y: auto;
+  padding: 18px 20px;
+  background: var(--warm-cream);
+  border: 4px solid var(--dark-walnut);
+  box-shadow: 6px 8px 0 rgba(25, 22, 20, 0.5);
+}
+
+.ledger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--dark-walnut);
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+}
+
+.ledger-entry {
+  padding: 8px 10px;
+  background: var(--aged-paper);
+  border-left: 3px solid var(--dusty-navy);
+  margin-bottom: 8px;
+  font-size: 0.79rem;
+}
+
+/* ============================================================
+   RESPONSIVE ADJUSTMENTS (LAPTOP / TABLET / MOBILE)
+   ============================================================ */
+@media (max-width: 820px) {
+  .investigation-stage {
+    padding: 8px;
+  }
+
+  .physical-board {
+    width: 100%;
+    max-height: calc(100vh - 16px);
+    border-width: 6px;
+    padding: 8px 10px;
+  }
+
+  .board-documents-grid {
+    min-width: 600px;
+  }
+
+  .dossier-drawer {
+    top: auto;
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: auto;
+    max-height: 68vh;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition: none !important;
+    animation: none !important;
+  }
+}
