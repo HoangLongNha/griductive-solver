@@ -3,8 +3,10 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from griductive.agent import AgentVerdictOracle, KnowledgeBase, SATQuery, build_kb, classify_kb
-from griductive.agent import select_forced_verdict
+from griductive.agent import (
+    AgentVerdictOracle, DeductionTrace, KnowledgeBase, SATQuery, auto_solve, build_kb,
+    classify_kb, select_forced_verdict,
+)
 from griductive.logic import encode_kb
 from griductive.models import CNF, CellId, Inference, PublicState, Status, SubmitResult, VerdictStatus
 from griductive.sat import solve
@@ -50,6 +52,11 @@ class Controller:
         state = self._current().restart()
         self.last_trace = None
         return state
+
+    def auto_solve(self) -> DeductionTrace:
+        self.last_trace = None
+        self._recheck_queries.clear()
+        return auto_solve(self._current(), encode_kb, solve, oracle_query_log=self._recheck_queries)
 
     def step(self) -> SubmitResult:
         """Prove and submit at most one row-major forced verdict."""

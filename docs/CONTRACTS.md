@@ -182,9 +182,11 @@ class GameView(Protocol):
     def show_trace(self, trace: "DeductionTrace") -> None: ...
 ```
 
-VT5 owns Tkinter/ttk/Canvas only; GUI never reads puzzle source or hidden truths. Controller owns Load, Restart, Hint, Auto Solve, manual verdict dispatch and asynchronous-safe UI updates. Running solver must not block Tkinter's event loop: offload computation, update widgets only on UI thread (Tkinter `.after`). Hint returns at least one currently entailed cell or relevant revealed clue, never a hidden clue.
+VT5 owns the React view. The browser receives JSON derived from `PublicState` and never reads puzzle files or hidden truths. The server-side Controller owns Load, Restart, Hint, single-step proof, Auto Solve and manual verdict dispatch. React calls the HTTP API asynchronously and renders public outcomes; pending requests disable conflicting actions. Hint returns a currently entailed cell and may reference only revealed clues.
 
-Controller serializes mutations of GameSession. Load/Restart creates a new session ID or increments a revision. Workers receive public snapshots only and emit versioned results; Controller discards stale results before applying them. GUI events are consumed on the UI thread with Tkinter `.after`. Load failure preserves the current session. Invalid or already-revealed cells leave state unchanged; their exact exception/result remains a team decision.
+The web server serializes commands against its local GameSession. The encoder and solver receive only the public projection and its CNF. Load failure preserves the current session. Invalid or already-revealed cell submissions leave state unchanged. The verdict and single-step endpoints return a public result and the proof queries for that attempt. Background jobs and cancellation require session/revision checks when added.
+
+The local endpoints are `GET /api/puzzles`, `GET /api/game/state`, `GET /api/game/hint`, and `POST /api/game/load`, `/api/game/verdict`, `/api/game/step`, `/api/game/auto-solve`, `/api/game/restart`. `/api/game/step` proves and reveals at most one card. `/api/game/auto-solve` runs the separate full deduction loop.
 
 ## 7. Testing, trace and metrics
 

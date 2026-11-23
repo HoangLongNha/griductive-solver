@@ -433,6 +433,7 @@ function InvestigationBoardScene({
   onLoadPuzzle,
   onRestart,
   onHint,
+  onStep,
   onAutoSolve,
   onOpenLedger,
   onStepBack,
@@ -511,6 +512,15 @@ function InvestigationBoardScene({
                 alt=""
               />
               Oracle Hint
+            </button>
+
+            <button
+              type="button"
+              className="paper-tab primary"
+              disabled={busy || !gameState || gameState.solved}
+              onClick={onStep}
+            >
+              Prove One Move
             </button>
 
             <button
@@ -891,12 +901,12 @@ function App() {
     }
   };
 
-  const handleVerdict = async (cell, status) => {
+  const handleProofAction = async (path, payload) => {
     setBusy(true);
     try {
-      const res = await apiFetch("/api/game/verdict", {
+      const res = await apiFetch(path, {
         method: "POST",
-        body: JSON.stringify({ cell, status }),
+        body: JSON.stringify(payload),
       });
       setGameState(res.state);
       setHintInfo(null);
@@ -914,6 +924,8 @@ function App() {
       setBusy(false);
     }
   };
+
+  const handleVerdict = (cell, status) => handleProofAction("/api/game/verdict", { cell, status });
 
   const handleHint = async () => {
     setBusy(true);
@@ -983,6 +995,7 @@ function App() {
         onLoadPuzzle={handleLoadPuzzle}
         onRestart={handleRestart}
         onHint={handleHint}
+        onStep={() => handleProofAction("/api/game/step", {})}
         onAutoSolve={handleAutoSolve}
         onOpenLedger={() => setShowLedger(true)}
         onStepBack={returnToRoomView}
