@@ -20,6 +20,7 @@ if _SRC_DIR not in sys.path:
 
 from griductive.agent.entailment import AgentVerdictOracle, classify_kb
 from griductive.agent.knowledge_base import QueryPurpose, SATQuery, build_kb, run_sat_query
+from griductive.logic import validate_clue
 from griductive.logic.encoder import encode_full_clues, encode_kb
 from griductive.models import (
     CNF,
@@ -128,35 +129,61 @@ class _FallbackGameSession:
         return SubmitResult(VerdictStatus.ACCEPTED, self.snapshot(), cell)
 
 
-def _load_puzzle_with_mode(path: Path) -> tuple[Any, type, str]:
-    """Use official GameSession/load_puzzle when jsonschema is installed; else stdlib fallback."""
+def _load_puzzle_with_mode(path: Path, *, diagnostic: bool = False) -> tuple[Any, type, str]:
+    """Use the official loader for gameplay; allow false clues in negative benchmarks.
+
+    Diagnostic fixtures still require valid structure and clue references. Their
+    intentional contradictions must reach DPLL instead of failing hidden-truth
+    validation. This exception is local to the benchmark, never the game loader.
+    """
+    session_cls = _FallbackGameSession
+    mode = "stdlib_fallback_no_jsonschema"
     try:
         from griductive.game.engine import GameSession, load_puzzle
-
-        return load_puzzle(str(path)), GameSession, "game_session"
     except ModuleNotFoundError as exc:
         if exc.name != "jsonschema":
             raise
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        size = int(raw["size"])
-        expected = tuple(var_to_cell(v, size) for v in range(1, size * size + 1))
-        by_cell = {c["cell"]: c for c in raw["cards"]}
-        cards = tuple(
-            _FallbackCard(
-                by_cell[cid]["cell"],
-                by_cell[cid]["name"],
-                by_cell[cid]["profession"],
-                Status(by_cell[cid]["hidden_status"]),
-                Clue(
-                    by_cell[cid]["clue"]["id"],
-                    by_cell[cid]["clue"]["kind"],
-                    {k: v for k, v in by_cell[cid]["clue"].items() if k not in ("id", "kind")},
-                ),
-            )
-            for cid in expected
+    else:
+        if not diagnostic:
+            return load_puzzle(str(path)), GameSession, "game_session"
+        session_cls = GameSession
+        mode = "diagnostic_game_session"
+
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    if mode == "diagnostic_game_session":
+        from jsonschema import Draft202012Validator
+
+        schema = json.loads((ROOT / "schemas" / "puzzle.schema.json").read_text(encoding="utf-8"))
+        Draft202012Validator(schema).validate(raw)
+    size = int(raw["size"])
+    expected = tuple(var_to_cell(v, size) for v in range(1, size * size + 1))
+    by_cell = {c["cell"]: c for c in raw["cards"]}
+    if len(raw["cards"]) != size * size or set(by_cell) != set(expected):
+        raise ValueError("Board must contain each cell exactly once")
+    if not set(raw["initial_revealed"]) <= set(expected):
+        raise ValueError("Initial reveal outside board")
+    cards = tuple(
+        _FallbackCard(
+            by_cell[cid]["cell"],
+            by_cell[cid]["name"],
+            by_cell[cid]["profession"],
+            Status(by_cell[cid]["hidden_status"]),
+            Clue(
+                by_cell[cid]["clue"]["id"],
+                by_cell[cid]["clue"]["kind"],
+                {k: v for k, v in by_cell[cid]["clue"].items() if k not in ("id", "kind")},
+            ),
         )
-        puzzle = _FallbackPuzzle(raw["id"], size, cards, tuple(raw["initial_revealed"]))
-        return puzzle, _FallbackGameSession, "stdlib_fallback_no_jsonschema"
+        for cid in expected
+    )
+    if len({c.name for c in cards}) != len(cards):
+        raise ValueError("Duplicate character name")
+    if len({c.clue.id for c in cards}) != len(cards):
+        raise ValueError("Duplicate clue ID")
+    for card in cards:
+        validate_clue(card.clue, size)
+    puzzle = _FallbackPuzzle(raw["id"], size, cards, tuple(raw["initial_revealed"]))
+    return puzzle, session_cls, mode
 
 
 def discover_puzzles(puzzles_dir: Path, include_negative: bool = False) -> list[tuple[str, Path]]:
@@ -221,7 +248,7 @@ def run_single_puzzle(
 
     t0 = perf_counter()
     try:
-        puzzle, session_cls, loader_mode = _load_puzzle_with_mode(path)
+        puzzle, session_cls, loader_mode = _load_puzzle_with_mode(path, diagnostic=category == "negative")
         puzzle_id = puzzle.id
         size = puzzle.size
         oracle = AgentVerdictOracle(encode_kb, timed_solver, query_log=gameplay_queries)
@@ -282,7 +309,7 @@ def run_single_puzzle(
     # Separate validation / uniqueness phase (never mixed into gameplay counters)
     if size > 0 and status != "ERROR":
         try:
-            puzzle_val, _, _ = _load_puzzle_with_mode(path)
+            puzzle_val, _, _ = _load_puzzle_with_mode(path, diagnostic=category == "negative")
             full_cnf = encode_full_clues(puzzle_val)
             res1 = run_sat_query(
                 timed_solver,
