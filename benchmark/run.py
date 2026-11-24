@@ -128,35 +128,52 @@ class _FallbackGameSession:
         return SubmitResult(VerdictStatus.ACCEPTED, self.snapshot(), cell)
 
 
-def _load_puzzle_with_mode(path: Path) -> tuple[Any, type, str]:
+def _build_puzzle_from_raw(path: Path, puzzle_cls: type, card_cls: type) -> Any:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    size = int(raw["size"])
+    expected = tuple(var_to_cell(v, size) for v in range(1, size * size + 1))
+    by_cell = {c["cell"]: c for c in raw["cards"]}
+    cards = tuple(
+        card_cls(
+            by_cell[cid]["cell"],
+            by_cell[cid]["name"],
+            by_cell[cid]["profession"],
+            Status(by_cell[cid]["hidden_status"]),
+            Clue(
+                by_cell[cid]["clue"]["id"],
+                by_cell[cid]["clue"]["kind"],
+                {k: v for k, v in by_cell[cid]["clue"].items() if k not in ("id", "kind")},
+            ),
+        )
+        for cid in expected
+    )
+    return puzzle_cls(raw["id"], size, cards, tuple(raw["initial_revealed"]))
+
+
+def _load_puzzle_with_mode(path: Path, allow_inconsistent: bool = False) -> tuple[Any, type, str]:
     """Use official GameSession/load_puzzle when jsonschema is installed; else stdlib fallback."""
     try:
-        from griductive.game.engine import GameSession, load_puzzle
-
-        return load_puzzle(str(path)), GameSession, "game_session"
+        from griductive.game.engine import GameSession, PuzzleValidationError, load_puzzle
+        from griductive.game.loader import PrivateCard, Puzzle
     except ModuleNotFoundError as exc:
         if exc.name != "jsonschema":
             raise
-        raw = json.loads(path.read_text(encoding="utf-8"))
-        size = int(raw["size"])
-        expected = tuple(var_to_cell(v, size) for v in range(1, size * size + 1))
-        by_cell = {c["cell"]: c for c in raw["cards"]}
-        cards = tuple(
-            _FallbackCard(
-                by_cell[cid]["cell"],
-                by_cell[cid]["name"],
-                by_cell[cid]["profession"],
-                Status(by_cell[cid]["hidden_status"]),
-                Clue(
-                    by_cell[cid]["clue"]["id"],
-                    by_cell[cid]["clue"]["kind"],
-                    {k: v for k, v in by_cell[cid]["clue"].items() if k not in ("id", "kind")},
-                ),
-            )
-            for cid in expected
+        return (
+            _build_puzzle_from_raw(path, _FallbackPuzzle, _FallbackCard),
+            _FallbackGameSession,
+            "stdlib_fallback_no_jsonschema",
         )
-        puzzle = _FallbackPuzzle(raw["id"], size, cards, tuple(raw["initial_revealed"]))
-        return puzzle, _FallbackGameSession, "stdlib_fallback_no_jsonschema"
+
+    try:
+        return load_puzzle(str(path)), GameSession, "game_session"
+    except PuzzleValidationError as exc:
+        if allow_inconsistent and "contradicts hidden solution" in str(exc):
+            return (
+                _build_puzzle_from_raw(path, Puzzle, PrivateCard),
+                GameSession,
+                "game_session_diagnostic_negative",
+            )
+        raise
 
 
 def discover_puzzles(puzzles_dir: Path, include_negative: bool = False) -> list[tuple[str, Path]]:
@@ -221,7 +238,9 @@ def run_single_puzzle(
 
     t0 = perf_counter()
     try:
-        puzzle, session_cls, loader_mode = _load_puzzle_with_mode(path)
+        puzzle, session_cls, loader_mode = _load_puzzle_with_mode(
+            path, allow_inconsistent=(category == "negative")
+        )
         puzzle_id = puzzle.id
         size = puzzle.size
         oracle = AgentVerdictOracle(encode_kb, timed_solver, query_log=gameplay_queries)
@@ -282,7 +301,9 @@ def run_single_puzzle(
     # Separate validation / uniqueness phase (never mixed into gameplay counters)
     if size > 0 and status != "ERROR":
         try:
-            puzzle_val, _, _ = _load_puzzle_with_mode(path)
+            puzzle_val, _, _ = _load_puzzle_with_mode(
+                path, allow_inconsistent=(category == "negative")
+            )
             full_cnf = encode_full_clues(puzzle_val)
             res1 = run_sat_query(
                 timed_solver,
