@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "id": "stuck_4x4",
+  "size": 4,
+  "initial_revealed": [
+    "A1"
+  ],
+  "cards": [
+    {
+      "cell": "A1",
+      "name": "Alice",
+      "profession": "Detective",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "FACT",
+        "cell": "B1",
+        "status": "INNOCENT",
+        "id": "c-A1"
+      }
+    },
+    {
+      "cell": "B1",
+      "name": "Bao",
+      "profession": "Guard",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "SAME",
+        "cells": [
+          "B1",
+          "C1"
+        ],
+        "id": "c-B1"
+      }
+    },
+    {
+      "cell": "C1",
+      "name": "Chi",
+      "profession": "Artist",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "row",
+          "index": 1
+        },
+        "id": "c-C1"
+      }
+    },
+    {
+      "cell": "D1",
+      "name": "Dung",
+      "profession": "Engineer",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "EXACTLY",
+        "k": 1,
+        "region": {
+          "type": "row",
+          "index": 2
+        },
+        "id": "c-D1"
+      }
+    },
+    {
+      "cell": "A2",
+      "name": "Emi",
+      "profession": "Clerk",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "A1",
+        "status": "CRIMINAL",
+        "id": "c-A2"
+      }
+    },
+    {
+      "cell": "B2",
+      "name": "Finn",
+      "profession": "Doctor",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "FACT",
+        "cell": "A2",
+        "status": "INNOCENT",
+        "id": "c-B2"
+      }
+    },
+    {
+      "cell": "C2",
+      "name": "Gia",
+      "profession": "Teacher",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "B2",
+        "status": "CRIMINAL",
+        "id": "c-C2"
+      }
+    },
+    {
+      "cell": "D2",
+      "name": "Hanh",
+      "profession": "Farmer",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "C2",
+        "status": "INNOCENT",
+        "id": "c-D2"
+      }
+    },
+    {
+      "cell": "A3",
+      "name": "Ivy",
+      "profession": "Writer",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "FACT",
+        "cell": "A3",
+        "status": "CRIMINAL",
+        "id": "c-A3"
+      }
+    },
+    {
+      "cell": "B3",
+      "name": "Jun",
+      "profession": "Student",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "column",
+          "index": "D"
+        },
+        "id": "c-B3"
+      }
+    },
+    {
+      "cell": "C3",
+      "name": "Khai",
+      "profession": "Pilot",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "B3",
+        "status": "CRIMINAL",
+        "id": "c-C3"
+      }
+    },
+    {
+      "cell": "D3",
+      "name": "Linh",
+      "profession": "Chef",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "FACT",
+        "cell": "C3",
+        "status": "INNOCENT",
+        "id": "c-D3"
+      }
+    },
+    {
+      "cell": "A4",
+      "name": "Mai",
+      "profession": "Nurse",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "D3",
+        "status": "CRIMINAL",
+        "id": "c-A4"
+      }
+    },
+    {
+      "cell": "B4",
+      "name": "Nam",
+      "profession": "Designer",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "A4",
+        "status": "INNOCENT",
+        "id": "c-B4"
+      }
+    },
+    {
+      "cell": "C4",
+      "name": "Oanh",
+      "profession": "Driver",
+      "hidden_status": "CRIMINAL",
+      "clue": {
+        "kind": "FACT",
+        "cell": "B4",
+        "status": "INNOCENT",
+        "id": "c-C4"
+      }
+    },
+    {
+      "cell": "D4",
+      "name": "Phuc",
+      "profession": "Librarian",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "FACT",
+        "cell": "C4",
+        "status": "CRIMINAL",
+        "id": "c-D4"
+      }
+    }
+  ]
+}

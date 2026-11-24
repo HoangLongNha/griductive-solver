@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 build/
 dist/
+
+# Local-only visual production notes
+CONTEXT.md
+docs/art-direction/
