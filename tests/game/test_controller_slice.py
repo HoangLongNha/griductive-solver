@@ -47,7 +47,7 @@ def test_slice_dpll_proves_b1_and_engine_reveals_only_b1():
     assert trace.cnf.clauses == ((1,), (-2,))
     assert trace.newly_revealed_clue_id == 'c-B1'
     assert any(q.assumptions == (2,) and not q.is_sat for q in trace.queries)
-    assert sum(q.purpose.value == 'VERDICT_RECHECK' for q in trace.queries) == 2
+    assert sum(q.purpose.value == 'VERDICT_RECHECK' for q in trace.queries) == 1
 
 
 def test_slice_rejected_verdicts_preserve_snapshot_and_kb_and_restart():

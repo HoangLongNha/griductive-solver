@@ -118,11 +118,14 @@ def test_hint_01_returns_first_row_major_forced_cell_and_revealed_clues():
     assert hint.outcome == HintOutcome.FORCED
     assert hint.cell == "B1"
     assert hint.status == Status.CRIMINAL
-    assert hint.revealed_clue_ids == ("c-A1", "c-A2")
+    assert hint.revealed_clue_ids == ("c-A2",)
+    assert hint.supporting_clue_cells == ("A2",)
     assert "B1" in hint.message and "CRIMINAL" in hint.message
+    assert "A2" in hint.clue_hint_message and "c-A2" in hint.clue_hint_message
+    assert "B1" not in hint.clue_hint_message and "CRIMINAL" not in hint.clue_hint_message
     assert hint.queries == tuple(log)
     assert hint.stats == aggregate_queries(log)
-    # First query is BASE_KB; all cell entailment queries are tagged HINT.
+    # First query is BASE_KB; all cell entailment and minimal-clue queries are tagged HINT.
     assert log[0].purpose == QueryPurpose.BASE_KB
     assert all(q.purpose == QueryPurpose.HINT for q in log[1:])
 
@@ -187,6 +190,69 @@ def test_hint_01_never_reads_hidden_labels_or_unrevealed_clues():
     for hidden_clue_id in ("c-B1-p1", "c-A2-p1", "c-B2-p1", "c-B1-p2", "c-A2-p2", "c-B2-p2"):
         assert hidden_clue_id not in h1.revealed_clue_ids
         assert hidden_clue_id not in h1.message
+
+
+def test_hint_minimal_supporting_clues_ignores_irrelevant_earlier_clue():
+    """Minimal supporting clues ignore earlier clues that merely mention the target cell without proving it."""
+    revealed_clues = {
+        "A1": (
+            Status.CRIMINAL,
+            Clue("c-A1", "AT_LEAST", {"k": 1, "region": {"type": "row", "index": 1}}),
+        ),
+        "B2": (
+            Status.INNOCENT,
+            Clue("c-B2", "EXACTLY", {"k": 0, "region": {"type": "column", "index": "B"}}),
+        ),
+    }
+    cards = []
+    for var in range(1, 10):
+        cell = var_to_cell(var, 3)
+        if cell in revealed_clues:
+            st, cl = revealed_clues[cell]
+            cards.append(PublicCard(cell, f"N-{cell}", "Prof", True, st, cl))
+        else:
+            cards.append(PublicCard(cell, f"N-{cell}", "Prof", False, None, None))
+    public = PublicState("mus_irrelevant", 3, tuple(cards))
+
+    hint = get_hint(public, encode_kb, brute_force_test_solver)
+    assert hint.outcome == HintOutcome.FORCED
+    assert hint.cell == "B1"
+    assert hint.status == Status.INNOCENT
+    assert hint.revealed_clue_ids == ("c-B2",)
+    assert hint.supporting_clue_cells == ("B2",)
+    assert "c-A1" not in hint.revealed_clue_ids
+    assert "B2" in hint.clue_hint_message
+    assert "B1" not in hint.clue_hint_message
+    assert "INNOCENT" not in hint.clue_hint_message
+
+
+def test_hint_prefers_fewer_supporting_clues_over_row_major():
+    """Hint selects the simplest forced cell (fewest supporting clues), breaking ties row-major."""
+    # B1 and B3 are only forced by combining c-A1 AND c-A2 (2 clues), while C3 is directly forced by c-B2 (1 clue).
+    revealed_clues = {
+        "A1": (Status.CRIMINAL, Clue("c-A1", "SAME", {"cells": ("B1", "B3")})),
+        "A2": (
+            Status.CRIMINAL,
+            Clue("c-A2", "AT_LEAST", {"k": 1, "region": {"type": "cells", "cells": ("B1", "B3")}}),
+        ),
+        "B2": (Status.INNOCENT, Clue("c-B2", "FACT", {"cell": "C3", "status": "INNOCENT"})),
+    }
+    cards = []
+    for var in range(1, 10):
+        cell = var_to_cell(var, 3)
+        if cell in revealed_clues:
+            st, cl = revealed_clues[cell]
+            cards.append(PublicCard(cell, f"N-{cell}", "Prof", True, st, cl))
+        else:
+            cards.append(PublicCard(cell, f"N-{cell}", "Prof", False, None, None))
+    public = PublicState("mus_prefer_simpler", 3, tuple(cards))
+
+    hint = get_hint(public, encode_kb, brute_force_test_solver)
+    assert hint.outcome == HintOutcome.FORCED
+    assert hint.cell == "C3"
+    assert hint.status == Status.INNOCENT
+    assert hint.revealed_clue_ids == ("c-B2",)
+    assert hint.supporting_clue_cells == ("B2",)
 
 
 def test_hint_solved_and_inconsistent_states():

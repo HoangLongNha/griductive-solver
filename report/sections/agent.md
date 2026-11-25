@@ -42,18 +42,22 @@ Bảng chân trị phân loại được thiết lập như sau:
 
 ---
 
-### 1.3 Thứ tự truy vấn tối ưu và Kiểm tra cơ sở $KB$ (Base KB Check)
+### 1.3 Thứ tự truy vấn tối ưu, Kiểm tra cơ sở $KB$ và Tái sử dụng Witness (Model Witness Reuse)
 
-Trước khi truy vấn từng ô, hàm `classify_kb` luôn thực hiện **một truy vấn SAT rỗng** (không kèm assumption) trên chính $KB$:
+Trước khi truy vấn từng ô, hàm `classify_kb` (và `classify_one`) luôn thực hiện **một truy vấn SAT rỗng** (không kèm assumption) trên chính $KB$:
 ```python
 base_res = run_sat_query(solver, kb.cnf, (), purpose=QueryPurpose.BASE_KB)
 if not base_res.is_sat:
     return {cell: Inference.INCONSISTENT for cell in kb.unresolved_cells}
 ```
 
-**Ý nghĩa tối ưu hóa:**
-- Nếu dữ liệu đề bài bị lỗi hoặc hai manh mối công khai tự triệt tiêu nhau khiến $KB$ vô nghiệm, phép kiểm tra này phát hiện ngay lập tức chỉ với **1 lượt gọi SAT**.
-- Tránh được việc thực hiện lãng phí $2 \times (\text{số ô úp})$ câu hỏi SAT khi toàn bộ các câu hỏi đó chắc chắn đều trả về UNSAT.
+**Hai tầng tối ưu hóa số lượt gọi SAT:**
+1. **Ngắt sớm khi $KB$ mâu thuẫn:** Nếu dữ liệu đề bài bị lỗi hoặc hai manh mối công khai tự triệt tiêu nhau khiến $KB$ vô nghiệm, phép kiểm tra này phát hiện ngay lập tức chỉ với **1 lượt gọi SAT**, tránh được $2 \times (\text{số ô úp})$ câu hỏi vô nghĩa.
+2. **Tái sử dụng mô hình chứng kiến (Model Witness Reuse):** Khi `base_res.is_sat == True`, bộ giải trả về kèm một phép gán đầy đủ `M = base_res.assignment` thỏa mãn toàn bộ $KB$. Với mỗi ô chưa mở $X$ (biến $v$):
+   - Nếu `M[v] == True`, ta đã có sẵn bằng chứng $KB \land (+v)$ là **SAT**! Do đó **chỉ cần hỏi 1 câu phản chứng $KB \land (\neg v)$**: nếu UNSAT $\implies$ `CRIMINAL`, nếu SAT $\implies$ `UNKNOWN`.
+   - Nếu `M[v] == False`, ta đã có sẵn bằng chứng $KB \land (\neg v)$ là **SAT**! Do đó **chỉ cần hỏi 1 câu phản chứng $KB \land (+v)$**: nếu UNSAT $\implies$ `INNOCENT`, nếu SAT $\implies$ `UNKNOWN`.
+   - *(Fallback nếu solver trả `assignment=None`: kiểm tra $(\neg v)$ trước và short-circuit ngay khi UNSAT mà không hỏi thêm $(+v)$).*
+   - Cơ chế này giảm tổng số lượt gọi SAT từ **104 xuống 60** trên bàn 3×3 (~42%) và từ **300 xuống 165** trên bàn 4×4 (~45%) mà vẫn bảo toàn tuyệt đối tính đúng đắn toán học.
 
 ---
 
@@ -128,29 +132,29 @@ Mỗi lần giải, `auto_solve` sinh ra một bản ghi kiểm toán bất bi�
 
 ### 3.2 Bảng dữ liệu thực nghiệm chạy bằng DPLL SAT Solver thật
 
-Dưới đây là bảng trích xuất số liệu thực tế khi chạy giải `puzzles/3x3/tutorial_3x3.json` bằng bộ giải DPLL nội bộ (`griductive.sat.dpll.solve`):
+Dưới đây là bảng trích xuất số liệu thực tế khi chạy giải `puzzles/3x3/tutorial_3x3.json` bằng bộ giải DPLL nội bộ (`griductive.sat.dpll.solve`) sau khi áp dụng **Model Witness Reuse**:
 
 - **Tổng số bước giải:** 8 bước (ứng với 8 ô úp ban đầu, ô $A1$ mở sẵn).
-- **Tổng số lượt gọi SAT Solver:** **104 lượt** (gồm 80 lượt phân loại của Agent + 24 lượt xác minh lại của GameEngine).
-- **Tổng thời gian chạy SAT:** ~0.0023 giây.
+- **Tổng số lượt gọi SAT Solver:** **60 lượt** (gồm 44 lượt phân loại của Agent + 16 lượt xác minh lại của GameEngine).
+- **Tổng thời gian chạy SAT:** ~0.0028 giây.
 - **Trạng thái kết thúc:** `TraceStatus.SOLVED`.
 
-| Bước | Ô chọn | Phán đoán | Manh mối mới mở | Số Clue kích hoạt | Biến / Mệnh đề CNF | Số câu hỏi SAT bước này | Chi tiết câu hỏi tại ô chọn |
+| Bước | Ô chọn | Phán đoán | Manh mối mới mở | Số Clue kích hoạt | Biến / Mệnh đề CNF | Số câu hỏi SAT bước này | Chi tiết câu hỏi tại ô chọn (Witness-guided) |
 |:---:|:---:|:---:|:---:|:---:|:---:|:---:|---|
-| **1** | $B1$ | `INNOCENT` | `c-B1` (SAME B1, C1) | 1 (`c-A1`) | 9 biến / 2 mệnh đề | 20 (16 classify + 2 base + 2 recheck) | $KB \land (-2)$ SAT; $KB \land (+2)$ **UNSAT** |
-| **2** | $C1$ | `INNOCENT` | `c-C1` (DIFF C1, A2) | 2 (`c-A1`, `c-B1`) | 9 biến / 5 mệnh đề | 18 (14 classify + 2 base + 2 recheck) | $KB \land (-3)$ SAT; $KB \land (+3)$ **UNSAT** |
-| **3** | $A2$ | `CRIMINAL` | `c-A2` (FACT B2 INNOCENT) | 3 (`c-A1`..`c-C1`) | 9 biến / 8 mệnh đề | 16 (12 classify + 2 base + 2 recheck) | $KB \land (-4)$ **UNSAT**; $KB \land (+4)$ SAT |
-| **4** | $B2$ | `INNOCENT` | `c-B2` (EXACTLY 2 row 2) | 4 (`c-A1`..`c-A2`) | 9 biến / 10 mệnh đề | 14 (10 classify + 2 base + 2 recheck) | $KB \land (-5)$ SAT; $KB \land (+5)$ **UNSAT** |
-| **5** | $C2$ | `CRIMINAL` | `c-C2` (EXACTLY 2 col A) | 5 (`c-A1`..`c-B2`) | 9 biến / 15 mệnh đề | 12 (8 classify + 2 base + 2 recheck) | $KB \land (-6)$ **UNSAT**; $KB \land (+6)$ SAT |
-| **6** | $A3$ | `INNOCENT` | `c-A3` (DIFF A3, B3) | 6 (`c-A1`..`c-C2`) | 9 biến / 20 mệnh đề | 10 (6 classify + 2 base + 2 recheck) | $KB \land (-7)$ SAT; $KB \land (+7)$ **UNSAT** |
-| **7** | $B3$ | `CRIMINAL` | `c-B3` (AT_MOST 1 row 3) | 7 (`c-A1`..`c-A3`) | 9 biến / 23 mệnh đề | 8 (4 classify + 2 base + 2 recheck) | $KB \land (-8)$ **UNSAT**; $KB \land (+8)$ SAT |
-| **8** | $C3$ | `INNOCENT` | `c-C3` (AT_LEAST 1 row 1) | 8 (`c-A1`..`c-B3`) | 9 biến / 27 mệnh đề | 6 (2 classify + 2 base + 2 recheck) | $KB \land (-9)$ SAT; $KB \land (+9)$ **UNSAT** |
+| **1** | $B1$ | `INNOCENT` | `c-B1` (SAME B1, C1) | 1 (`c-A1`) | 9 biến / 2 mệnh đề | 11 (8 classify + 2 base + 1 recheck) | $KB \land (+2)$ **UNSAT** (do $M[2]=\text{False}$) |
+| **2** | $C1$ | `INNOCENT` | `c-C1` (DIFF C1, A2) | 2 (`c-A1`, `c-B1`) | 9 biến / 5 mệnh đề | 10 (7 classify + 2 base + 1 recheck) | $KB \land (+3)$ **UNSAT** (do $M[3]=\text{False}$) |
+| **3** | $A2$ | `CRIMINAL` | `c-A2` (FACT B2 INNOCENT) | 3 (`c-A1`..`c-C1`) | 9 biến / 8 mệnh đề | 9 (6 classify + 2 base + 1 recheck) | $KB \land (-4)$ **UNSAT** (do $M[4]=\text{True}$) |
+| **4** | $B2$ | `INNOCENT` | `c-B2` (EXACTLY 2 row 2) | 4 (`c-A1`..`c-A2`) | 9 biến / 10 mệnh đề | 8 (5 classify + 2 base + 1 recheck) | $KB \land (+5)$ **UNSAT** (do $M[5]=\text{False}$) |
+| **5** | $C2$ | `CRIMINAL` | `c-C2` (EXACTLY 2 col A) | 5 (`c-A1`..`c-B2`) | 9 biến / 15 mệnh đề | 7 (4 classify + 2 base + 1 recheck) | $KB \land (-6)$ **UNSAT** (do $M[6]=\text{True}$) |
+| **6** | $A3$ | `INNOCENT` | `c-A3` (DIFF A3, B3) | 6 (`c-A1`..`c-C2`) | 9 biến / 20 mệnh đề | 6 (3 classify + 2 base + 1 recheck) | $KB \land (+7)$ **UNSAT** (do $M[7]=\text{False}$) |
+| **7** | $B3$ | `CRIMINAL` | `c-B3` (AT_MOST 1 row 3) | 7 (`c-A1`..`c-A3`) | 9 biến / 23 mệnh đề | 5 (2 classify + 2 base + 1 recheck) | $KB \land (-8)$ **UNSAT** (do $M[8]=\text{True}$) |
+| **8** | $C3$ | `INNOCENT` | `c-C3` (AT_LEAST 1 row 1) | 8 (`c-A1`..`c-B3`) | 9 biến / 27 mệnh đề | 4 (1 classify + 2 base + 1 recheck) | $KB \land (+9)$ **UNSAT** (do $M[9]=\text{False}$) |
 
 > **Quy luật số lượng câu hỏi SAT:** Ở bước thứ $k$ (với $u = 9 - k$ ô chưa mở):
-> - Số câu hỏi phân loại của Agent: $1 \text{ (base)} + 2 \times u$.
-> - Số câu hỏi xác minh của GameEngine: $1 \text{ (base)} + 2 \times 1 \text{ (tại ô nộp)} = 3$ câu hỏi.
-> - Tổng số câu hỏi ở bước $k$: $(2u + 1) + 3 = 2u + 4$.
-> - Tổng lũy kế qua 8 bước: $\sum_{u=1}^{8} (2u + 4) = 2 \times \frac{8 \times 9}{2} + 32 = 72 + 32 = 104$ truy vấn SAT. Số liệu khớp chính xác 100%!
+> - Số câu hỏi phân loại của Agent: $1 \text{ (base)} + u$ (mỗi ô úp đúng 1 câu phản chứng ngược chiều witness $M[v]$).
+> - Số câu hỏi xác minh của GameEngine: $1 \text{ (base)} + 1 \text{ (tại ô nộp)} = 2$ câu hỏi.
+> - Tổng số câu hỏi ở bước $k$: $(u + 1) + 2 = u + 3$.
+> - Tổng lũy kế qua 8 bước: $\sum_{u=1}^{8} (u + 3) = \frac{8 \times 9}{2} + 24 = 36 + 24 = 60$ truy vấn SAT (gồm $44$ lượt Agent + $16$ lượt Engine). Số liệu khớp chính xác 100%!
 
 ---
 
@@ -166,7 +170,11 @@ Hai công cụ này phục vụ hai mục đích hoàn toàn khác nhau trong ki
 │  Public Hint (`griductive.agent.hint`)                                 │
 │  - Đầu vào: CHỈ nhận `PublicState` (thẻ mở, manh mối đã thấy).         │
 │  - Ranh giới: Tuyệt đối KHÔNG đọc Puzzle hay đáp án ẩn.                │
-│  - Mục đích: Gợi ý cho người chơi 1 nước đi chắc chắn theo row-major.   │
+│  - Mục đích: Tìm tập manh mối tối thiểu (Minimal Supporting Clues)     │
+│    bằng thuật toán deletion-based MUS, ưu tiên ô trực diện ít clue nhất│
+│    (hòa mới theo row-major) và cung cấp gợi ý 2 bước (`clue_hint_message`│
+│    + `supporting_clue_cells` không spoil, rồi mới tới `cell`/`status`).│
+│    *(Trong khi `auto_solve` giữ nguyên row-major theo `CONTRACTS.md §5`.)*│
 └────────────────────────────────────────────────────────────────────────┘
                                     ▲
                          TÁCH BIỆT HOÀN TOÀN VỀ SCOPE
