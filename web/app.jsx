@@ -18,7 +18,9 @@ async function apiFetch(url, options = {}) {
   });
   const data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || `HTTP ${res.status}`);
+    const error = new Error(data.error || `HTTP ${res.status}`);
+    error.code = data.code;
+    throw error;
   }
   return data;
 }
@@ -446,6 +448,7 @@ function InvestigationBoardScene({
   onSelectDocument,
   onSubmitVerdict,
   busy,
+  resetBusy,
 }) {
   const surfaceRef = useRef(null);
   const docRefs = useRef({});
@@ -469,7 +472,7 @@ function InvestigationBoardScene({
             <select
               className="case-select-note"
               value={selectedPuzzleId}
-              disabled={busy}
+              disabled={resetBusy}
               aria-label="Select Case File"
               onChange={(e) => onChangePuzzleId(e.target.value)}
             >
@@ -483,7 +486,7 @@ function InvestigationBoardScene({
             <button
               type="button"
               className="paper-tab"
-              disabled={busy || !selectedPuzzleId}
+              disabled={resetBusy || !selectedPuzzleId}
               onClick={() => onLoadPuzzle(selectedPuzzleId)}
             >
               Open File
@@ -492,7 +495,7 @@ function InvestigationBoardScene({
             <button
               type="button"
               className="paper-tab"
-              disabled={busy || !gameState}
+              disabled={resetBusy || !gameState}
               onClick={onRestart}
             >
               Reset Pins
@@ -785,6 +788,8 @@ function App() {
   const [dispatch, setDispatch] = useState(null);
   const [showLedger, setShowLedger] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [resetBusy, setResetBusy] = useState(false);
+  const requestIdRef = useRef(0);
   const transitionTimerRef = useRef(null);
 
   useEffect(() => {
@@ -858,12 +863,15 @@ function App() {
 
   const handleLoadPuzzle = async (puzzleId) => {
     if (!puzzleId) return;
+    const requestId = ++requestIdRef.current;
     setBusy(true);
+    setResetBusy(true);
     try {
       const state = await apiFetch("/api/game/load", {
         method: "POST",
         body: JSON.stringify({ puzzle_id: puzzleId }),
       });
+      if (requestId !== requestIdRef.current) return;
       setGameState(state);
       setSelectedPuzzleId(state.puzzle_id);
       setSelectedCell(null);
@@ -875,16 +883,23 @@ function App() {
         message: `Loaded dossier "${state.puzzle_id}" (${state.size}x${state.size}).`,
       });
     } catch (err) {
+      if (requestId !== requestIdRef.current) return;
       setDispatch({ type: "CONTRADICTED", title: "LOAD ERROR", message: err.message });
     } finally {
-      setBusy(false);
+      if (requestId === requestIdRef.current) {
+        setBusy(false);
+        setResetBusy(false);
+      }
     }
   };
 
   const handleRestart = async () => {
+    const requestId = ++requestIdRef.current;
     setBusy(true);
+    setResetBusy(true);
     try {
       const state = await apiFetch("/api/game/restart", { method: "POST" });
+      if (requestId !== requestIdRef.current) return;
       setGameState(state);
       setSelectedCell(null);
       setOpenDossierCell(null);
@@ -895,19 +910,25 @@ function App() {
         message: "Returned pinboard to initial revealed clues.",
       });
     } catch (err) {
-      setDispatch({ type: "CONTRADICTED", title: "ERROR", message: err.message });
+      if (requestId !== requestIdRef.current) return;
+      setDispatch({ type: "CONTRADICTED", title: err.code || "ERROR", message: err.message });
     } finally {
-      setBusy(false);
+      if (requestId === requestIdRef.current) {
+        setBusy(false);
+        setResetBusy(false);
+      }
     }
   };
 
   const handleProofAction = async (path, payload) => {
+    const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
       const res = await apiFetch(path, {
         method: "POST",
         body: JSON.stringify(payload),
       });
+      if (requestId !== requestIdRef.current) return;
       setGameState(res.state);
       setHintInfo(null);
       if (res.newly_revealed) {
@@ -919,18 +940,21 @@ function App() {
         message: res.message,
       });
     } catch (err) {
-      setDispatch({ type: "CONTRADICTED", title: "ERROR", message: err.message });
+      if (requestId !== requestIdRef.current) return;
+      setDispatch({ type: "CONTRADICTED", title: err.code || "ERROR", message: err.message });
     } finally {
-      setBusy(false);
+      if (requestId === requestIdRef.current) setBusy(false);
     }
   };
 
   const handleVerdict = (cell, status) => handleProofAction("/api/game/verdict", { cell, status });
 
   const handleHint = async () => {
+    const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
       const hint = await apiFetch("/api/game/hint");
+      if (requestId !== requestIdRef.current) return;
       setHintInfo(hint);
       setSelectedCell(hint.relevant_clue_cell || hint.cell || null);
       setDispatch({
@@ -940,16 +964,19 @@ function App() {
       });
       if (viewState === "ROOM") enterBoardView();
     } catch (err) {
-      setDispatch({ type: "CONTRADICTED", title: "ERROR", message: err.message });
+      if (requestId !== requestIdRef.current) return;
+      setDispatch({ type: "CONTRADICTED", title: err.code || "ERROR", message: err.message });
     } finally {
-      setBusy(false);
+      if (requestId === requestIdRef.current) setBusy(false);
     }
   };
 
   const handleAutoSolve = async () => {
+    const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
       const res = await apiFetch("/api/game/auto-solve", { method: "POST" });
+      if (requestId !== requestIdRef.current) return;
       setGameState(res.state);
       setHintInfo(null);
       setSelectedCell(null);
@@ -964,9 +991,10 @@ function App() {
       });
       if (viewState === "ROOM") enterBoardView();
     } catch (err) {
-      setDispatch({ type: "CONTRADICTED", title: "ERROR", message: err.message });
+      if (requestId !== requestIdRef.current) return;
+      setDispatch({ type: "CONTRADICTED", title: err.code || "ERROR", message: err.message });
     } finally {
-      setBusy(false);
+      if (requestId === requestIdRef.current) setBusy(false);
     }
   };
 
@@ -1008,6 +1036,7 @@ function App() {
         onSelectDocument={handleSelectDocument}
         onSubmitVerdict={handleVerdict}
         busy={busy}
+        resetBusy={resetBusy}
       />
 
       {viewState === "BOARD" && openDossierCard && (

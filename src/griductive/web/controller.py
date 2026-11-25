@@ -1,22 +1,22 @@
 """Translate the real Controller's public results into the React API payloads."""
 
 from dataclasses import asdict
+from copy import copy
 import json
 from pathlib import Path
 
-from griductive.agent.hint import HintOutcome, get_hint
+from griductive.agent.hint import HintOutcome
 from griductive.game.controller import Controller
 from griductive.game.engine import PuzzleValidationError, load_puzzle
-from griductive.logic import encode_kb, referenced_cells
+from griductive.logic import referenced_cells
 from griductive.models import PublicState, Status, SubmitResult
-from griductive.sat import solve
 
 from .clue_formatter import format_clue_text
 
 
 class WebController:
-    def __init__(self, puzzles_dir: Path) -> None:
-        self._game = Controller()
+    def __init__(self, puzzles_dir: Path, *, solve_timeout_s: float = 10.0) -> None:
+        self._game = Controller(solve_timeout_s=solve_timeout_s)
         self._trace: list[dict] = []
         self._puzzles: dict[str, tuple[Path, dict]] = {}
         for path in sorted(puzzles_dir.rglob('*.json')):
@@ -42,6 +42,12 @@ class WebController:
 
     def list_puzzles(self) -> list[dict]:
         return [metadata for _, metadata in self._puzzles.values()]
+
+    def fork(self) -> 'WebController':
+        view = copy(self)
+        view._game = self._game.fork()
+        view._trace = list(self._trace)
+        return view
 
     def load_puzzle(self, puzzle_id: str) -> dict:
         if puzzle_id not in self._puzzles:
@@ -109,7 +115,7 @@ class WebController:
 
     def get_hint(self) -> dict:
         state = self._game.snapshot()
-        hint = get_hint(state, encode_kb, solve)
+        hint = self._game.get_hint()
         source = next((card for card in state.cards if card.clue and hint.cell in
                        referenced_cells(card.clue, state.size)), None)
         status = {HintOutcome.FORCED: 'FOUND', HintOutcome.INCONSISTENT: 'INCONSISTENT'}.get(
