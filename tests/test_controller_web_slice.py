@@ -3,8 +3,21 @@ from pathlib import Path
 from threading import Thread
 
 from griductive.web.server import create_server
+from griductive.web.controller import WebController
 
 from test_web_ui import _request
+
+
+def test_diagnostic_puzzles_are_selectable_and_reach_stuck():
+    root = Path(__file__).resolve().parents[1]
+    controller = WebController(root / 'puzzles')
+    diagnostics = {p['id'] for p in controller.list_puzzles() if p['category'] == 'diagnostic'}
+    assert diagnostics == {'ambiguous_3x3', 'stuck_4x4'}
+    for puzzle_id, steps in [('ambiguous_3x3', 0), ('stuck_4x4', 3)]:
+        controller.load_puzzle(puzzle_id)
+        result = controller.auto_solve()
+        assert result['terminal_status'] == 'STUCK'
+        assert len(result['steps_added']) == steps
 
 
 def test_react_api_runs_real_one_move_and_preserves_rejected_state():

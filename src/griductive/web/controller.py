@@ -6,7 +6,7 @@ from pathlib import Path
 
 from griductive.agent.hint import HintOutcome, get_hint
 from griductive.game.controller import Controller
-from griductive.game.engine import PuzzleValidationError
+from griductive.game.engine import PuzzleValidationError, load_puzzle
 from griductive.logic import encode_kb, referenced_cells
 from griductive.models import PublicState, Status, SubmitResult
 from griductive.sat import solve
@@ -21,9 +21,9 @@ class WebController:
         self._puzzles: dict[str, tuple[Path, dict]] = {}
         for path in sorted(puzzles_dir.rglob('*.json')):
             relative = path.relative_to(puzzles_dir)
-            if relative.parts[0] == 'negative':
-                continue  # diagnostic fixtures are not playable case files
             try:
+                if relative.parts[0] == 'negative':
+                    load_puzzle(str(path))  # Only offer diagnostics accepted by the game loader.
                 metadata = json.loads(path.read_text(encoding='utf-8'))
                 puzzle_id, size = metadata['id'], metadata['size']
                 if not isinstance(puzzle_id, str) or type(size) is not int:
@@ -31,6 +31,8 @@ class WebController:
             except (OSError, ValueError, KeyError, TypeError):
                 continue
             category = relative.parts[0] if len(relative.parts) > 1 else 'default'
+            if category == 'negative':
+                category = 'diagnostic'
             self._puzzles[puzzle_id] = (path, {
                 'id': puzzle_id, 'size': size, 'category': category, 'path': relative.as_posix(),
             })
