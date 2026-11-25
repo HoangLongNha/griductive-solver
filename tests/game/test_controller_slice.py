@@ -66,3 +66,25 @@ def test_slice_rejected_verdicts_preserve_snapshot_and_kb_and_restart():
     assert game.submit_verdict('B1', Status.INNOCENT).outcome == VerdictStatus.ACCEPTED
     assert game.restart() == initial
     assert game.last_trace is None
+
+
+def test_step_on_solved_board_preserves_state_and_trace_without_sat(monkeypatch):
+    game = controller.Controller()
+    game.load(TUTORIAL)
+    for _ in range(8):
+        assert game.step().outcome == VerdictStatus.ACCEPTED
+    solved = game.snapshot()
+    assert all(card.revealed for card in solved.cards)
+    last_trace = game.last_trace
+
+    def unexpected_solver(*args, **kwargs):
+        pytest.fail('Completed boards should not trigger SAT queries')
+
+    monkeypatch.setattr(controller, 'solve', unexpected_solver)
+    for _ in range(2):
+        result = game.step()
+        assert result.outcome == VerdictStatus.NOT_PROVABLE
+        assert result.message == 'Puzzle already solved'
+        assert result.newly_revealed is None
+        assert result.state == game.snapshot() == solved
+        assert game.last_trace is last_trace

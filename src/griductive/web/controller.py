@@ -11,7 +11,7 @@ from griductive.logic import encode_kb, referenced_cells
 from griductive.models import PublicState, Status, SubmitResult
 from griductive.sat import solve
 
-from .fake_controller import format_clue_text
+from .clue_formatter import format_clue_text
 
 
 class WebController:
@@ -88,8 +88,8 @@ class WebController:
             'queries': [asdict(query) for query in queries],
         })
 
-    def _verdict_payload(self, result: SubmitResult) -> dict:
-        trace = self._game.last_trace
+    def _verdict_payload(self, result: SubmitResult, *, include_proof: bool = True) -> dict:
+        trace = self._game.last_trace if include_proof else None
         if result.newly_revealed is not None and trace is not None:
             self._append_step(trace.cell, trace.verdict, trace.newly_revealed_clue_id,
                               trace.active_clue_ids, trace.queries)
@@ -104,7 +104,8 @@ class WebController:
         return self._verdict_payload(self._game.submit_verdict(cell, Status(status)))
 
     def step(self) -> dict:
-        return self._verdict_payload(self._game.step())
+        already_solved = all(card.revealed for card in self._game.snapshot().cards)
+        return self._verdict_payload(self._game.step(), include_proof=not already_solved)
 
     def get_hint(self) -> dict:
         state = self._game.snapshot()

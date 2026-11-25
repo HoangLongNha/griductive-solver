@@ -20,6 +20,24 @@ def test_diagnostic_puzzles_are_selectable_and_reach_stuck():
         assert len(result['steps_added']) == steps
 
 
+def test_completed_step_keeps_ledger_without_reusing_previous_proof():
+    root = Path(__file__).resolve().parents[1]
+    controller = WebController(root / 'puzzles')
+    controller.load_puzzle('tutorial_3x3')
+    for _ in range(8):
+        assert controller.step()['outcome'] == 'ACCEPTED'
+    solved = controller.get_public_state_dict()
+    assert solved['solved']
+    assert len(solved['trace']) == 8
+    for _ in range(2):
+        result = controller.step()
+        assert result['outcome'] == 'NOT_PROVABLE'
+        assert result['message'] == 'Puzzle already solved'
+        assert result['newly_revealed'] is None
+        assert result['proof'] is None
+        assert result['state'] == controller.get_public_state_dict() == solved
+
+
 def test_react_api_runs_real_one_move_and_preserves_rejected_state():
     root = Path(__file__).resolve().parents[1]
     with create_server(port=0, puzzles_dir=root / 'puzzles', web_dir=root / 'web') as server:

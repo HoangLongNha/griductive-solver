@@ -61,6 +61,8 @@ class Controller:
     def step(self) -> SubmitResult:
         """Prove and submit at most one row-major forced verdict."""
         state = self.snapshot()
+        if all(card.revealed for card in state.cards):
+            return SubmitResult(VerdictStatus.NOT_PROVABLE, state, None, 'Puzzle already solved')
         self.last_trace = None
         kb = build_kb(state, encode_kb)
         queries: list[SATQuery] = []
