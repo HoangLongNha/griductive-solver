@@ -27,6 +27,12 @@ class GameSession:
         self._revealed = set(self._puzzle.initial_revealed)
         return self.snapshot()
 
+    def fork(self, oracle: VerdictOracle) -> 'GameSession':
+        """Detach mutable reveal state, sharing only the immutable private puzzle."""
+        session = GameSession(self._puzzle, oracle)
+        session._revealed = set(self._revealed)
+        return session
+
     def submit_verdict(self, cell: str, status: Status) -> SubmitResult:
         # Invalid/repeated requests are programmer errors and leave state intact.
         card = next((c for c in self._puzzle.cards if c.cell == cell), None)

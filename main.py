@@ -20,9 +20,11 @@ def main() -> None:
     parser.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     parser.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
     parser.add_argument("--open", action="store_true", help="Open browser automatically")
+    parser.add_argument("--timeout", type=float, default=10.0,
+                        help="Total proof time limit per command, in seconds (default: 10)")
     args = parser.parse_args()
 
-    server = create_server(host=args.host, port=args.port)
+    server = create_server(host=args.host, port=args.port, solve_timeout_s=args.timeout)
     url = f"http://{args.host}:{args.port}"
     print(f"Griductive UI running at {url} (Ctrl+C to stop)")
     if args.open:

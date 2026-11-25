@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 import mimetypes
-import threading
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -11,6 +10,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 from griductive.web.controller import WebController
+from griductive.web.session import SessionHost, StaleOperation
+from griductive.models import SolverTimeout
 
 
 def create_server(
@@ -18,12 +19,12 @@ def create_server(
     port: int = 8000,
     puzzles_dir: Path | None = None,
     web_dir: Path | None = None,
+    solve_timeout_s: float = 10.0,
 ) -> ThreadingHTTPServer:
     root = Path(__file__).resolve().parents[3]
     puzzles_path = puzzles_dir or (root / "puzzles")
     static_path = (web_dir or (root / "web")).resolve()
-    controller = WebController(puzzles_path)
-    lock = threading.Lock()
+    session = SessionHost(WebController(puzzles_path, solve_timeout_s=solve_timeout_s))
 
     class GriductiveHandler(BaseHTTPRequestHandler):
         protocol_version = "HTTP/1.1"
@@ -70,54 +71,49 @@ def create_server(
             path = urlparse(self.path).path
             try:
                 if path == "/api/puzzles":
-                    with lock:
-                        self._send_json(HTTPStatus.OK, {"puzzles": controller.list_puzzles()})
+                    self._send_json(HTTPStatus.OK, {"puzzles": session.execute('list_puzzles')})
                     return
                 if path == "/api/game/state":
-                    with lock:
-                        self._send_json(HTTPStatus.OK, controller.get_public_state_dict())
+                    self._send_json(HTTPStatus.OK, session.execute('get_public_state_dict'))
                     return
                 if path == "/api/game/hint":
-                    with lock:
-                        self._send_json(HTTPStatus.OK, controller.get_hint())
+                    self._send_json(HTTPStatus.OK, session.execute('get_hint'))
                     return
                 self._serve_static(path)
-            except Exception as exc:  # noqa: BLE001
-                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
+            except StaleOperation:
+                self._send_json(HTTPStatus.CONFLICT, {"error": "Session changed; result discarded", "code": "STALE_RESULT"})
+            except SolverTimeout:
+                self._send_json(HTTPStatus.GATEWAY_TIMEOUT, {"error": "Proof time limit exceeded", "code": "TIMEOUT"})
+            except Exception:  # noqa: BLE001
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Request failed"})
 
         def do_POST(self) -> None:  # noqa: N802
             path = urlparse(self.path).path
             try:
                 body = self._read_json()
-                with lock:
-                    if path == "/api/game/load":
-                        puzzle_id = str(body.get("puzzle_id", ""))
-                        state = controller.load_puzzle(puzzle_id)
-                        self._send_json(HTTPStatus.OK, state)
-                        return
-                    if path == "/api/game/verdict":
-                        cell = str(body.get("cell", ""))
-                        status = str(body.get("status", ""))
-                        result = controller.submit_verdict(cell, status)
-                        self._send_json(HTTPStatus.OK, result)
-                        return
-                    if path == "/api/game/restart":
-                        state = controller.restart()
-                        self._send_json(HTTPStatus.OK, state)
-                        return
-                    if path == "/api/game/step":
-                        self._send_json(HTTPStatus.OK, controller.step())
-                        return
-                    if path == "/api/game/auto-solve":
-                        result = controller.auto_solve()
-                        self._send_json(HTTPStatus.OK, result)
-                        return
-                self._send_json(HTTPStatus.NOT_FOUND, {"error": f"Unknown endpoint: {path}"})
+                if path == "/api/game/load":
+                    result = session.execute('load_puzzle', str(body.get('puzzle_id', '')))
+                elif path == "/api/game/verdict":
+                    result = session.execute('submit_verdict', str(body.get('cell', '')), str(body.get('status', '')))
+                elif path == "/api/game/restart":
+                    result = session.execute('restart')
+                elif path == "/api/game/step":
+                    result = session.execute('step')
+                elif path == "/api/game/auto-solve":
+                    result = session.execute('auto_solve')
+                else:
+                    self._send_json(HTTPStatus.NOT_FOUND, {"error": f"Unknown endpoint: {path}"})
+                    return
+                self._send_json(HTTPStatus.OK, result)
+            except StaleOperation:
+                self._send_json(HTTPStatus.CONFLICT, {"error": "Session changed; result discarded", "code": "STALE_RESULT"})
+            except SolverTimeout:
+                self._send_json(HTTPStatus.GATEWAY_TIMEOUT, {"error": "Proof time limit exceeded", "code": "TIMEOUT"})
             except FileNotFoundError as exc:
                 self._send_json(HTTPStatus.NOT_FOUND, {"error": str(exc)})
             except (ValueError, KeyError, json.JSONDecodeError) as exc:
                 self._send_json(HTTPStatus.BAD_REQUEST, {"error": str(exc)})
-            except Exception as exc:  # noqa: BLE001
-                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": str(exc)})
+            except Exception:  # noqa: BLE001
+                self._send_json(HTTPStatus.INTERNAL_SERVER_ERROR, {"error": "Request failed"})
 
     return ThreadingHTTPServer((host, port), GriductiveHandler)

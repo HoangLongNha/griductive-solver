@@ -1,6 +1,22 @@
 # Test case matrix — acceptance evidence for every task
 
-Unit tests must be implemented by the owner when coding. This file contains specifications, **not claims that production modules passed**. Only starter fixture validation tests have been executed.
+This matrix specifies acceptance criteria. Test mappings below identify runnable checks; a row alone is not evidence that a particular commit passed. Use the pytest/CI result for that commit.
+
+## Full production integration checks
+
+Run `python -m pytest tests/test_full_integration.py -q` against the commit under review. These checks use real Engine, Encoder, DPLL, Agent and the HTTP adapter; controlled fault injections are named explicitly.
+
+| Acceptance | Test in `tests/test_full_integration.py` | Required observation |
+|---|---|---|
+| INT-01 / INT-02 | `test_int01_int02_real_http_full_game` | 3×3/4×4/5×5: Hint is read-only, manual proof accepted, Auto Solve completes, Restart restores initial state |
+| INT-03 / INT-04 | `test_int03_int04_public_privacy_and_rejected_manual` | Sealed clue/status absent; rejected verdicts and invalid requests preserve state |
+| Clues / regions / uniqueness | `test_real_web_path_covers_all_clues_regions_and_uniqueness` | Real web path solves playable cases covering 8 clue kinds and 4 regions; full primary solution is unique |
+| STUCK | `test_http_stuck_does_not_guess` | Ambiguous and mid-game stuck cases terminate without guessing |
+| INCONSISTENT | `test_inconsistent_public_state_uses_real_pipeline_without_loading_false_puzzle` | Public fault injection produces INCONSISTENT with no reveals; false puzzle still rejected by loader |
+| Timeout | `test_real_solver_timeout_never_becomes_unsat`, `test_http_timeout_has_explicit_status_and_keeps_state` | Unfinished proof raises timeout / HTTP 504, never UNSAT or a verdict |
+| Interrupted work | `test_timeout_after_partial_work_does_not_publish_reveals` | Timeout after a real private reveal leaves published board and ledger unchanged |
+| Load / Restart invalidation | `test_reset_invalidates_inflight_real_work`, `test_http_reset_during_solve_discards_old_result` | Reset does not wait for SAT; old result rejected with HTTP 409; failed load preserves published board |
+| Invalid data | `test_bad_data_load_is_transactional_and_does_not_disclose_hidden` | Loader error preserves state and exposes no hidden validation detail |
 
 ## 1.1 — Repo, models, contracts và CI
 
