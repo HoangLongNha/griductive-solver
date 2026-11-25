@@ -6,6 +6,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -14,6 +16,41 @@ from benchmark.run import run_benchmark, run_single_puzzle
 from benchmark.verify import verify_results
 
 PUZZLES_DIR = ROOT / "puzzles"
+
+
+def test_inconsistent_fixture_is_only_allowed_in_negative_benchmark() -> None:
+    """Keep production validation strict and classify diagnostic KBs using DPLL."""
+    path = PUZZLES_DIR / "negative" / "inconsistent_public_3x3.json"
+    row, record, _ = run_single_puzzle(path, "3x3", 1, 10.0)
+    assert row["status"] == "ERROR"
+    assert "PuzzleValidationError" in row["error"]
+    assert record["gameplay_queries"] == []
+
+    row, record, mode = run_single_puzzle(path, "negative", 1, 10.0)
+    assert row["status"] == "INCONSISTENT"
+    assert row["error"] == ""
+    assert mode == "diagnostic_game_session"
+    assert row["deduction_steps"] == 0
+    assert record["gameplay_queries"]
+    assert record["gameplay_queries"][0]["is_sat"] is False
+
+
+@pytest.mark.parametrize("invalid", ["schema", "reference", "duplicate_cell"])
+def test_negative_benchmark_still_validates_fixture(tmp_path: Path, invalid: str) -> None:
+    raw = json.loads((PUZZLES_DIR / "negative" / "inconsistent_public_3x3.json").read_text(encoding="utf-8"))
+    if invalid == "schema":
+        del raw["cards"][0]["profession"]
+    elif invalid == "reference":
+        raw["cards"][0]["clue"]["cell"] = "D1"
+    else:
+        raw["cards"][1]["cell"] = "A1"
+    path = tmp_path / "invalid.json"
+    path.write_text(json.dumps(raw), encoding="utf-8")
+
+    row, record, _ = run_single_puzzle(path, "negative", 1, 10.0)
+    assert row["status"] == "ERROR"
+    assert row["error"]
+    assert record["gameplay_queries"] == []
 
 
 def test_benchmark_runner_and_verifier_reproducible_end_to_end(tmp_path: Path) -> None:

@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from griductive.web.fake_controller import FakeController
+from griductive.web.controller import WebController
 
 
 def create_server(
@@ -22,7 +22,7 @@ def create_server(
     root = Path(__file__).resolve().parents[3]
     puzzles_path = puzzles_dir or (root / "puzzles")
     static_path = (web_dir or (root / "web")).resolve()
-    controller = FakeController(puzzles_path)
+    controller = WebController(puzzles_path)
     lock = threading.Lock()
 
     class GriductiveHandler(BaseHTTPRequestHandler):
@@ -104,6 +104,9 @@ def create_server(
                     if path == "/api/game/restart":
                         state = controller.restart()
                         self._send_json(HTTPStatus.OK, state)
+                        return
+                    if path == "/api/game/step":
+                        self._send_json(HTTPStatus.OK, controller.step())
                         return
                     if path == "/api/game/auto-solve":
                         result = controller.auto_solve()
