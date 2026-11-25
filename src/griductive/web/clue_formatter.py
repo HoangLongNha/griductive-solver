@@ -59,6 +59,3 @@ def format_clue_text(clue: dict[str, Any], names: dict[CellId, str]) -> str:
         concl = f"{label(c['cell'])} is {str(c['status']).capitalize()}"
         return f"If {premises}, then {concl}."
     return f"{kind} clue"
-
-
-

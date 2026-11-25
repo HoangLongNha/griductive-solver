@@ -472,4 +472,3 @@ class FakeController:
             "steps_added": steps_added,
             "state": final_state,
         }
-
