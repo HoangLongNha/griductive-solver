@@ -101,7 +101,18 @@ class WebController:
                               trace.active_clue_ids, trace.queries)
         message = result.message
         if not message and trace is not None:
-            message = f'{trace.cell}: {trace.verdict.value} ({len(trace.queries)} SAT queries)'
+            if result.outcome.value == 'NOT_PROVABLE':
+                message = (
+                    f'{trace.cell} cannot yet be proven {trace.verdict.value} '
+                    f'from current public clues ({len(trace.queries)} SAT queries).'
+                )
+            elif result.outcome.value == 'CONTRADICTED':
+                message = (
+                    f'{trace.cell} as {trace.verdict.value} contradicts revealed '
+                    f'public clues ({len(trace.queries)} SAT queries).'
+                )
+            else:
+                message = f'{trace.cell}: {trace.verdict.value} ({len(trace.queries)} SAT queries)'
         return {'outcome': result.outcome.value, 'newly_revealed': result.newly_revealed,
                 'message': message, 'proof': asdict(trace) if trace else None,
                 'state': self._public_payload(result.state)}
@@ -116,15 +127,35 @@ class WebController:
     def get_hint(self) -> dict:
         state = self._game.snapshot()
         hint = self._game.get_hint()
-        source = next((card for card in state.cards if card.clue and hint.cell in
-                       referenced_cells(card.clue, state.size)), None)
+        by_cell = {card.cell: card for card in state.cards}
+        support_cards = [
+            by_cell[cid]
+            for cid in hint.supporting_clue_cells
+            if cid in by_cell and by_cell[cid].clue is not None
+        ]
+        if not support_cards:
+            fallback = next((card for card in state.cards if card.clue and hint.cell in
+                             referenced_cells(card.clue, state.size)), None)
+            if fallback is not None:
+                support_cards = [fallback]
+        source = support_cards[0] if support_cards else None
+        highlighted: list[str] = []
+        for card in support_cards:
+            if card.cell not in highlighted:
+                highlighted.append(card.cell)
+            for ref in referenced_cells(card.clue, state.size):
+                if ref not in highlighted:
+                    highlighted.append(ref)
+        if not highlighted and hint.cell:
+            highlighted.append(hint.cell)
         status = {HintOutcome.FORCED: 'FOUND', HintOutcome.INCONSISTENT: 'INCONSISTENT'}.get(
             hint.outcome, 'NONE')
         return {'status': status, 'cell': hint.cell, 'message': hint.message,
+                'clue_hint_message': hint.clue_hint_message,
+                'supporting_clue_cells': list(hint.supporting_clue_cells),
                 'suggested_verdict': hint.status.value if hint.status else None,
                 'relevant_clue_cell': source.cell if source else None,
-                'highlighted_cells': referenced_cells(source.clue, state.size) if source else (
-                    (hint.cell,) if hint.cell else ())}
+                'highlighted_cells': tuple(highlighted)}
 
     def auto_solve(self) -> dict:
         start = len(self._trace)

@@ -45,12 +45,24 @@ class GameSession:
         if not isinstance(inference, Inference):
             raise TypeError('Oracle must return Inference')
         if inference == Inference.UNKNOWN:
-            return SubmitResult(VerdictStatus.NOT_PROVABLE, state, None)
+            return SubmitResult(
+                VerdictStatus.NOT_PROVABLE, state, None,
+                f'{cell} cannot yet be proven {status.value} from current public clues.',
+            )
         if inference == Inference.INCONSISTENT:
-            return SubmitResult(VerdictStatus.INCONSISTENT, state, None)
+            return SubmitResult(
+                VerdictStatus.INCONSISTENT, state, None,
+                'Public clues contradict each other.',
+            )
         if inference.value != status.value:
-            return SubmitResult(VerdictStatus.CONTRADICTED, state, None)
+            return SubmitResult(
+                VerdictStatus.CONTRADICTED, state, None,
+                f'{cell} as {status.value} contradicts revealed public clues.',
+            )
         if card.hidden_status != status:
             raise PuzzleIntegrityError('Proved verdict conflicts with hidden solution')
         self._revealed.add(cell)
-        return SubmitResult(VerdictStatus.ACCEPTED, self.snapshot(), cell)
+        return SubmitResult(
+            VerdictStatus.ACCEPTED, self.snapshot(), cell,
+            f'{cell} confirmed as {status.value}.',
+        )
