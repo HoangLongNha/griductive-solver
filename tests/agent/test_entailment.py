@@ -90,7 +90,7 @@ class StubSolver:
             return SATResult(is_sat=False, assignment=None, stats=stats)
         return SATResult(
             is_sat=True,
-            assignment={v: True for v in range(1, cnf.variable_count + 1)},
+            assignment={v: ((v,) not in self.unsat_assumptions) for v in range(1, cnf.variable_count + 1)},
             stats=stats,
         )
 
@@ -305,13 +305,37 @@ def test_query_log_records_purposes_and_assumptions():
     assert log[0].assumptions == ()
     assert log[0].is_sat is True
 
-    # 1 base call + 2 assumption calls for each of the 3 unresolved cells = 7 queries
-    assert len(log) == 7
+    # 1 base call + 1 witness-guided refutation call for each of the 3 unresolved cells = 4 queries
+    assert len(log) == 4
     b1_queries = [q for q in log if q.target_cell == "B1"]
     assert [(q.purpose, q.assumptions, q.is_sat) for q in b1_queries] == [
         (QueryPurpose.CLASSIFY, (-2,), False),
-        (QueryPurpose.CLASSIFY, (2,), True),
     ]
+
+
+def test_witness_reuse_halves_sat_queries_and_preserves_soundness():
+    """Verify witness reuse runs 1 call per cell and short-circuits when assignment is None."""
+    state = make_public_state(2, {"A1": (Status.CRIMINAL, None)})
+    encoder = FakeEncoder(extra_clauses=((-1, 2), (3,)))  # B1=CRIMINAL, A2=CRIMINAL, B2=UNKNOWN
+    kb = build_kb(state, encoder)
+
+    # Full witness from DPLL/brute_force: 1 BASE_KB + 3 single-polarity queries = 4 calls
+    full_log: list[SATQuery] = []
+    res_full = classify_kb(kb, brute_force_test_solver, query_log=full_log)
+    assert res_full == {"B1": Inference.CRIMINAL, "A2": Inference.CRIMINAL, "B2": Inference.UNKNOWN}
+    assert len(full_log) == 4
+
+    # Solver that omits assignment on SAT: falls back to short-circuiting (-v UNSAT skips +v)
+    class NoAssignmentSolver:
+        def solve(self, cnf: CNF, assumptions: tuple[int, ...] = ()) -> SATResult:
+            real = brute_force_test_solver(cnf, assumptions)
+            return SATResult(is_sat=real.is_sat, assignment=None, stats=real.stats)
+
+    fallback_log: list[SATQuery] = []
+    res_fallback = classify_kb(kb, NoAssignmentSolver(), query_log=fallback_log)
+    assert res_fallback == res_full
+    # B1 (-2 UNSAT -> skip +2), A2 (-3 UNSAT -> skip +3), B2 (-4 SAT then +4 SAT) => 1 + 1 + 1 + 2 = 5
+    assert len(fallback_log) == 5
 
 
 def test_solver_timeout_and_cancelled_propagate_never_unsat():
