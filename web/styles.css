@@ -521,7 +521,7 @@ select:focus-visible,
 /* Contextual Paper Tabs along Top Wood Frame — always single row on desktop */
 .board-ribbon {
   position: relative;
-  z-index: 4;
+  z-index: 20;
   display: flex;
   flex-wrap: nowrap;
   align-items: center;

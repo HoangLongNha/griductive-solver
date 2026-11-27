@@ -201,6 +201,16 @@ def _format_at_least(clue: dict[str, Any], names: dict[CellId, str], size: int |
     s_sing = _status_word(clue, plural=False)
     s_plur = _status_word(clue, plural=True)
 
+    if k == 0:
+        if mode == "corners":
+            return f"At least 0 of the four corners are {s_plur}."
+        if mode == "neighbors":
+            return f"At least 0 of {phrase}'s neighbors are {s_plur}."
+        if mode == "pair":
+            return f"At least 0 of {phrase} are {s_plur}."
+        if mode == "prep":
+            return f"There are at least 0 {s_plur} {phrase}."
+        return f"There are at least 0 {s_plur} in {phrase}."
     if n is not None and k == n:
         return _format_exactly(clue, names, size)
     if mode == "corners":
@@ -239,7 +249,9 @@ def _format_at_most(clue: dict[str, Any], names: dict[CellId, str], size: int | 
             return f"At most 1 of {phrase}'s neighbors is {s_sing}."
         return f"At most {k} of {phrase}'s neighbors are {s_plur}."
     if mode == "pair":
-        return f"Not both of {phrase} are {s_plur}."
+        if k == 1:
+            return f"Not both of {phrase} are {s_plur}."
+        return f"At most {k} of {phrase} are {s_plur}."
     if mode == "prep":
         return f"There are at most {k} {noun} {phrase}."
     if k == 1:
