@@ -178,16 +178,16 @@
       "profession": "Chef",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-D3",
         "kind": "AT_LEAST",
         "k": 2,
         "region": {
           "type": "cells",
           "cells": [
-            "C2",
-            "D2"
+            "C4",
+            "D4"
           ]
-        },
-        "id": "c-D3"
+        }
       }
     },
     {
@@ -210,12 +210,12 @@
       "profession": "Designer",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-B4",
         "kind": "DIFFERENT",
         "cells": [
-          "B2",
-          "C2"
-        ],
-        "id": "c-B4"
+          "B4",
+          "C4"
+        ]
       }
     },
     {
@@ -224,12 +224,12 @@
       "profession": "Driver",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-C4",
         "kind": "SAME",
         "cells": [
-          "C2",
-          "D2"
-        ],
-        "id": "c-C4"
+          "C4",
+          "D4"
+        ]
       }
     },
     {

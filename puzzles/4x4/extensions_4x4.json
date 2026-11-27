@@ -159,22 +159,22 @@
       "profession": "Student",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-B3",
         "kind": "COMPOUND",
         "premises": [
           {
-            "cell": "B1",
-            "status": "INNOCENT"
+            "cell": "B3",
+            "status": "CRIMINAL"
           },
           {
-            "cell": "B2",
+            "cell": "D3",
             "status": "INNOCENT"
           }
         ],
         "conclusion": {
-          "cell": "A1",
-          "status": "CRIMINAL"
-        },
-        "id": "c-B3"
+          "cell": "C3",
+          "status": "INNOCENT"
+        }
       }
     },
     {
@@ -183,12 +183,12 @@
       "profession": "Pilot",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-C3",
         "kind": "DIFFERENT",
         "cells": [
-          "B2",
-          "A1"
-        ],
-        "id": "c-C3"
+          "B3",
+          "D3"
+        ]
       }
     },
     {
@@ -197,12 +197,12 @@
       "profession": "Chef",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-D3",
         "kind": "SAME",
         "cells": [
-          "A1",
-          "D1"
-        ],
-        "id": "c-D3"
+          "B4",
+          "C4"
+        ]
       }
     },
     {
@@ -227,16 +227,17 @@
       "profession": "Designer",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-B4",
         "kind": "AT_LEAST",
         "k": 2,
+        "status": "INNOCENT",
         "region": {
           "type": "cells",
           "cells": [
-            "A1",
-            "D4"
+            "B4",
+            "C4"
           ]
-        },
-        "id": "c-B4"
+        }
       }
     },
     {

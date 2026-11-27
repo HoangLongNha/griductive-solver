@@ -207,3 +207,44 @@ def test_clue_formatter_handles_at_least_and_at_most_boundaries() -> None:
         format_clue_text({"kind": "AT_MOST", "k": 0, "region": row_reg}, names, size=3)
         == "No one in Row 1 is criminal."
     )
+
+    # Natural spatial intersection phrasing (prep + neighbors, neighbors + neighbors)
+    names2 = {"A3": "Iris", "B4": "Nina", "A2": "Emma", "B1": "Brian"}
+    assert (
+        format_clue_text(
+            {
+                "kind": "EXACTLY",
+                "k": 2,
+                "status": "INNOCENT",
+                "region": {
+                    "type": "intersection",
+                    "regions": [
+                        {"type": "right_of", "cell": "A3"},
+                        {"type": "neighbors", "cell": "B4"},
+                    ],
+                },
+            },
+            names2,
+            size=4,
+        )
+        == "2 innocents to the right of Iris are neighboring Nina."
+    )
+    assert (
+        format_clue_text(
+            {
+                "kind": "EXACTLY",
+                "k": 1,
+                "status": "INNOCENT",
+                "region": {
+                    "type": "intersection",
+                    "regions": [
+                        {"type": "neighbors", "cell": "A2"},
+                        {"type": "neighbors", "cell": "B1"},
+                    ],
+                },
+            },
+            names2,
+            size=4,
+        )
+        == "Only 1 common neighbor of Emma and Brian is innocent."
+    )

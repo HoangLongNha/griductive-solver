@@ -132,13 +132,13 @@
       "profession": "Farmer",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-C2",
         "kind": "EXACTLY",
-        "k": 1,
+        "k": 3,
         "region": {
           "type": "neighbors",
-          "cell": "A1"
-        },
-        "id": "c-C2"
+          "cell": "D2"
+        }
       }
     },
     {
@@ -305,10 +305,10 @@
       "profession": "Botanist",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-D4",
         "kind": "FACT",
-        "cell": "A1",
-        "status": "CRIMINAL",
-        "id": "c-D4"
+        "cell": "E4",
+        "status": "CRIMINAL"
       }
     },
     {
@@ -336,13 +336,13 @@
       "profession": "Tailor",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-A5",
         "kind": "EXACTLY",
-        "k": 1,
+        "k": 2,
         "region": {
           "type": "neighbors",
-          "cell": "A1"
-        },
-        "id": "c-A5"
+          "cell": "D5"
+        }
       }
     },
     {
@@ -351,12 +351,12 @@
       "profession": "Locksmith",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-B5",
         "kind": "SAME",
         "cells": [
-          "A1",
-          "E1"
-        ],
-        "id": "c-B5"
+          "C5",
+          "D5"
+        ]
       }
     },
     {
@@ -365,13 +365,13 @@
       "profession": "Astronomer",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-C5",
         "kind": "EXACTLY",
-        "k": 1,
+        "k": 2,
         "region": {
           "type": "row",
-          "index": 4
-        },
-        "id": "c-C5"
+          "index": 5
+        }
       }
     },
     {
@@ -380,12 +380,12 @@
       "profession": "Antique Dealer",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-D5",
         "kind": "DIFFERENT",
         "cells": [
-          "A4",
-          "E4"
-        ],
-        "id": "c-D5"
+          "D5",
+          "E5"
+        ]
       }
     },
     {

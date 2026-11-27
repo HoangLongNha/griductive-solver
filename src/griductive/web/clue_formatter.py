@@ -12,6 +12,35 @@ def _person_label(cid: str, names: dict[CellId, str] | None) -> str:
     return name if name else cid
 
 
+def _region_anchors(region: dict[str, Any] | None) -> list[CellId]:
+    if not isinstance(region, dict):
+        return []
+    rtype = region.get("type")
+    if rtype in ("neighbors", "above", "below", "left_of", "right_of"):
+        cid = region.get("cell")
+        return [str(cid)] if cid else []
+    if rtype in ("between", "common_neighbors"):
+        return [str(c) for c in region.get("cells", []) if c]
+    if rtype == "intersection":
+        out: list[CellId] = []
+        for sub in region.get("regions", []):
+            for cid in _region_anchors(sub):
+                if cid not in out:
+                    out.append(cid)
+        return out
+    return []
+
+
+def extract_anchor_cells(clue: dict[str, Any]) -> list[CellId]:
+    """Return spatial anchor cells referenced as landmarks by a clue (e.g. 'Alice' in Alice's neighbors)."""
+    out: list[CellId] = []
+    for key in ("region", "region_a", "region_b"):
+        for cid in _region_anchors(clue.get(key)):
+            if cid not in out:
+                out.append(cid)
+    return out
+
+
 def _region_cardinality(region: dict[str, Any], size: int | None) -> int | None:
     if size is None:
         return None
@@ -66,6 +95,16 @@ def _format_region_phrase(
                 return "neighbors_in", f"{p0}|{p1}"
             if m1 == "neighbors" and m0 == "in":
                 return "neighbors_in", f"{p1}|{p0}"
+            if m0 == "prep" and m1 == "neighbors":
+                return "prep_neighbors", f"{p0}|{p1}"
+            if m1 == "prep" and m0 == "neighbors":
+                return "prep_neighbors", f"{p1}|{p0}"
+            if m0 == "neighbors" and m1 == "neighbors":
+                return "common_neighbors", f"{p0} and {p1}"
+            if m0 == "prep" and m1 == "in":
+                return "prep", f"{p0} in {p1}"
+            if m1 == "prep" and m0 == "in":
+                return "prep", f"{p1} in {p0}"
         if subs:
             parts = []
             for s in subs:
@@ -118,7 +157,7 @@ def _format_exactly(clue: dict[str, Any], names: dict[CellId, str], size: int | 
         if n is not None and k == n:
             return f"All {n} of {phrase}'s neighbors are {s_plur}."
         if k == 1:
-            return f"Exactly 1 of {phrase}'s neighbors is {s_sing}."
+            return f"Only 1 of {phrase}'s neighbors is {s_sing}."
         return f"{phrase} has {k} {s_sing} neighbors."
 
     if mode == "neighbors_in":
@@ -128,6 +167,14 @@ def _format_exactly(clue: dict[str, Any], names: dict[CellId, str], size: int | 
         if k == 1:
             return f"Exactly 1 of {who}'s neighbors in {where} is {s_sing}."
         return f"Exactly {k} of {who}'s neighbors in {where} are {s_plur}."
+
+    if mode == "prep_neighbors":
+        where, who = phrase.split("|", 1)
+        if k == 0:
+            return f"No {s_sing} {where} is neighboring {who}."
+        if k == 1:
+            return f"Only 1 {s_sing} {where} is neighboring {who}."
+        return f"{k} {s_plur} {where} are neighboring {who}."
 
     if mode == "common_neighbors":
         if k == 0:
@@ -145,7 +192,7 @@ def _format_exactly(clue: dict[str, Any], names: dict[CellId, str], size: int | 
             return f"All four corners are {s_plur}."
         if k == 1:
             return f"Only 1 of the four corners is {s_sing}."
-        return f"Exactly {k} of the four corners are {s_plur}."
+        return f"{k} of the four corners are {s_plur}."
 
     if mode == "edges":
         if k == 0:
@@ -225,6 +272,11 @@ def _format_at_least(clue: dict[str, Any], names: dict[CellId, str], size: int |
         if k == 1:
             return f"At least 1 of {phrase} is {s_sing}."
         return f"Both {phrase} are {s_plur}."
+    if mode == "prep_neighbors":
+        where, who = phrase.split("|", 1)
+        if k == 1:
+            return f"At least 1 {s_sing} {where} is neighboring {who}."
+        return f"At least {k} {s_plur} {where} are neighboring {who}."
     if mode == "prep":
         if k == 1:
             return f"There is at least 1 {s_sing} {phrase}."
@@ -248,6 +300,11 @@ def _format_at_most(clue: dict[str, Any], names: dict[CellId, str], size: int | 
         if k == 1:
             return f"At most 1 of {phrase}'s neighbors is {s_sing}."
         return f"At most {k} of {phrase}'s neighbors are {s_plur}."
+    if mode == "prep_neighbors":
+        where, who = phrase.split("|", 1)
+        if k == 1:
+            return f"At most 1 {s_sing} {where} is neighboring {who}."
+        return f"At most {k} {s_plur} {where} are neighboring {who}."
     if mode == "pair":
         if k == 1:
             return f"Not both of {phrase} are {s_plur}."

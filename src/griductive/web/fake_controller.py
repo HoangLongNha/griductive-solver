@@ -6,7 +6,7 @@ Respects CONTRACTS.md privacy boundary:
 """
 from __future__ import annotations
 
-from .clue_formatter import format_clue_text
+from .clue_formatter import extract_anchor_cells, format_clue_text
 
 import itertools
 import json
@@ -294,6 +294,7 @@ class FakeController:
                     "kind": card.clue.kind,
                     "text": format_clue_text(raw_clue, names, state.size),
                     "highlighted_cells": extract_referenced_cells(raw_clue, state.size),
+                    "anchor_cells": extract_anchor_cells(raw_clue),
                 }
             serialized_cards.append({
                 "cell": card.cell,

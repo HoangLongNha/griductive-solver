@@ -61,16 +61,13 @@
       "profession": "Engineer",
       "hidden_status": "CRIMINAL",
       "clue": {
+        "id": "c-D1",
         "kind": "AT_MOST",
         "k": 1,
         "region": {
-          "type": "cells",
-          "cells": [
-            "B1",
-            "D1"
-          ]
-        },
-        "id": "c-D1"
+          "type": "row",
+          "index": 2
+        }
       }
     },
     {
@@ -93,12 +90,12 @@
       "profession": "Doctor",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-B2",
         "kind": "DIFFERENT",
         "cells": [
-          "A4",
-          "C4"
-        ],
-        "id": "c-B2"
+          "C2",
+          "D2"
+        ]
       }
     },
     {
@@ -107,12 +104,12 @@
       "profession": "Teacher",
       "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-C2",
         "kind": "SAME",
         "cells": [
-          "C3",
-          "D3"
-        ],
-        "id": "c-C2"
+          "D1",
+          "D2"
+        ]
       }
     },
     {
