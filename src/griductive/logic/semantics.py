@@ -10,7 +10,7 @@ from collections.abc import Mapping
 from griductive.models import CellId, Clue
 from . import extensions
 from .regions import (ClueValidationError, check_cell, check_size, field, parse_literal,
-                      resolve_region)
+                      parse_status, resolve_region)
 
 CORE_KINDS = ('FACT', 'SAME', 'DIFFERENT', 'EXACTLY', 'AT_LEAST', 'AT_MOST')
 COUNTING_KINDS = ('EXACTLY', 'AT_LEAST', 'AT_MOST')
@@ -27,8 +27,16 @@ def parse_pair(clue: Clue, size: int) -> tuple[CellId, CellId]:
     return left, right
 
 
+def parse_target_status(clue: Clue) -> bool:
+    """Target status counted by a clue; defaults to True ('CRIMINAL')."""
+    if 'status' not in clue.data:
+        return True
+    return parse_status(clue.data['status'])
+
+
 def parse_counting(clue: Clue, size: int) -> tuple[tuple[CellId, ...], int]:
     cells = resolve_region(field(clue.data, 'region'), size)
+    parse_target_status(clue)
     k = field(clue.data, 'k')
     if type(k) is not int or not 0 <= k <= len(cells):
         raise ClueValidationError(f'k={k!r} must be an integer in 0..{len(cells)}')
@@ -74,6 +82,7 @@ def evaluate_clue(clue: Clue, full_assignment: Mapping[CellId, bool], size: int)
         return (full_assignment[left] == full_assignment[right]) == (clue.kind == 'SAME')
     if clue.kind in extensions.EXTENSION_KINDS:
         return extensions.evaluate(clue, full_assignment, size)
-    count = sum(full_assignment[cell] for cell in cells)
+    target = parse_target_status(clue)
+    count = sum(full_assignment[cell] == target for cell in cells)
     k = parse_counting(clue, size)[1]
     return {'EXACTLY': count == k, 'AT_LEAST': count >= k, 'AT_MOST': count <= k}[clue.kind]
