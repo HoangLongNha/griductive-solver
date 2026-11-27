@@ -41,7 +41,7 @@ def encode_clue(clue: Clue, size: int, pool: AuxPool) -> list[Clause]:
         return extensions.encode_parity(tuple(literal(c, target, size) for c in cells), odd, pool)
     if clue.kind == 'CONNECTED':
         cells, target = extensions.parse_connected(clue, size)
-        return extensions.encode_connected(cells, tuple(literal(c, target, size) for c in cells))
+        return extensions.encode_connected(cells, tuple(literal(c, target, size) for c in cells), pool)
     if clue.kind == 'COMPOUND':
         premises, conclusion = extensions.parse_compound(clue, size)
         return extensions.encode_compound(

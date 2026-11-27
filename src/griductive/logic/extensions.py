@@ -112,13 +112,33 @@ def encode_parity(lits: tuple[int, ...], odd: bool, pool: AuxPool,
     return clauses
 
 
-def encode_connected(cells: tuple[CellId, ...], lits: tuple[int, ...]) -> list[Clause]:
-    """Forbid every assignment on the region whose target-status cells are not 4-connected."""
-    clauses: list[Clause] = []
-    for bits in product((False, True), repeat=len(cells)):
-        active = {cell for cell, bit in zip(cells, bits) if bit}
-        if not _is_orthogonally_connected(active):
-            clauses.append(tuple(-lit if bit else lit for lit, bit in zip(lits, bits)))
+def encode_connected(cells: tuple[CellId, ...], lits: tuple[int, ...], pool: AuxPool,
+                     direct_limit: int = DIRECT_CLAUSE_LIMIT) -> list[Clause]:
+    """Direct exclusion of disconnected assignments when 2^n clauses fit, otherwise a
+    reachability encoding: one root, and every active cell is reached from it in < n steps."""
+    n = len(cells)
+    if 2 ** n <= direct_limit:
+        clauses: list[Clause] = []
+        for bits in product((False, True), repeat=n):
+            active = {cell for cell, bit in zip(cells, bits) if bit}
+            if not _is_orthogonally_connected(active):
+                clauses.append(tuple(-lit if bit else lit for lit, bit in zip(lits, bits)))
+        return clauses
+    coords = [(ord(cell[0]) - 65, int(cell[1:]) - 1) for cell in cells]
+    nbrs = [[j for j, (x, y) in enumerate(coords) if abs(x - cx) + abs(y - cy) == 1]
+            for cx, cy in coords]
+    roots = [pool.new() for _ in range(n)]
+    clauses = [(-r, a) for r, a in zip(roots, lits)]  # the root is an active cell
+    clauses += [(-roots[i], -roots[j]) for i in range(n) for j in range(i + 1, n)]
+    clauses += [(-a, *roots) for a in lits]  # any active cell -> some root
+    # reach[i] at step d: cell i is within d steps of the root through active cells
+    reach = roots
+    for _ in range(n - 1):
+        step = [pool.new() for _ in range(n)]
+        for i, x in enumerate(step):
+            clauses += [(-x, lits[i]), (-x, reach[i], *(reach[j] for j in nbrs[i]))]
+        reach = step
+    clauses += [(-a, x) for a, x in zip(lits, reach)]  # every active cell is reached
     return clauses
 
 
