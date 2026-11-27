@@ -61,15 +61,45 @@ def verify_results(results_dir: Path) -> list[str]:
 
     by_key_csv = {(int(r["run_index"]), r["puzzle_id"]): r for r in rows}
     by_key_audit = {(int(rec["run_index"]), rec["puzzle_id"]): rec for rec in records}
+    if len(by_key_csv) != len(rows):
+        errors.append("Duplicate run_index/puzzle_id in summary.csv (BEN-03)")
+    if len(by_key_audit) != len(records):
+        errors.append("Duplicate run_index/puzzle_id in audit.json (BEN-03)")
     if set(by_key_csv) != set(by_key_audit):
         errors.append("Key mismatch between summary.csv and audit.json (BEN-03)")
         return errors
+
+    metadata = audit.get("metadata", {})
+    if "runs" in metadata and sorted({key[0] for key in by_key_csv}) != list(range(1, int(metadata["runs"]) + 1)):
+        errors.append("Run indexes do not match benchmark metadata (BEN-03)")
+    if "dataset_files" in metadata:
+        expected_count = len(metadata["dataset_files"])
+        if any(sum(key[0] == run for key in by_key_csv) != expected_count for run in {key[0] for key in by_key_csv}):
+            errors.append("Puzzle count differs from dataset_files metadata (BEN-03)")
 
     # BEN-01 & BEN-02: exact SAT call count and counter sums match audit log
     for key, row in by_key_csv.items():
         rec = by_key_audit[key]
         gp_sum = _sum_audit_queries(rec["gameplay_queries"])
         val_sum = _sum_audit_queries(rec["validation_queries"])
+
+        if row["status"] != rec["status"]:
+            errors.append(f"{key}: status differs from audit (BEN-04)")
+        if row["status"] in ("TIMEOUT", "ERROR", "CANCELLED") and not row["error"]:
+            errors.append(f"{key}: failure/timeout has no error detail (BEN-04)")
+        verdict_queries = sum(q["purpose"] == "VERDICT_RECHECK" for q in rec["gameplay_queries"])
+        marked_rechecks = [q.get("engine_recheck") for q in rec["gameplay_queries"]]
+        if all(mark is not None for mark in marked_rechecks):
+            if int(row["recheck_sat_calls"]) != sum(marked_rechecks):
+                errors.append(f"{key}: recheck_sat_calls differs from audit (BEN-01)")
+            if any(q["purpose"] == "VERDICT_RECHECK" and not q["engine_recheck"] for q in rec["gameplay_queries"]):
+                errors.append(f"{key}: verdict query missing engine recheck marker (BEN-01)")
+        elif not verdict_queries <= int(row["recheck_sat_calls"]) <= gp_sum["sat_calls"]:
+            errors.append(f"{key}: recheck_sat_calls outside audit bounds (BEN-01)")
+        if any(q["purpose"] == "UNIQUENESS" for q in rec["gameplay_queries"]):
+            errors.append(f"{key}: uniqueness query counted as gameplay (BEN-01)")
+        if any(q["purpose"] != "UNIQUENESS" for q in rec["validation_queries"]):
+            errors.append(f"{key}: non-uniqueness query counted as validation (BEN-01)")
 
         if int(row["sat_calls"]) != gp_sum["sat_calls"]:
             errors.append(f"{key}: sat_calls {row['sat_calls']} != audit {gp_sum['sat_calls']} (BEN-01)")

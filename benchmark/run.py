@@ -230,6 +230,7 @@ def run_single_puzzle(
 ) -> tuple[dict[str, Any], dict[str, Any], str]:
     """Execute gameplay deduction loop and separate uniqueness validation for one puzzle."""
     gameplay_queries: list[SATQuery] = []
+    recheck_query_indexes: set[int] = set()
     validation_queries: list[SATQuery] = []
     recheck_sat_calls = 0
     deduction_steps = 0
@@ -289,8 +290,11 @@ def run_single_puzzle(
                 break
 
             before_recheck = len(gameplay_queries)
-            res = session.submit_verdict(forced[0], forced[1])
-            recheck_sat_calls += len(gameplay_queries) - before_recheck
+            try:
+                res = session.submit_verdict(forced[0], forced[1])
+            finally:
+                recheck_sat_calls += len(gameplay_queries) - before_recheck
+                recheck_query_indexes.update(range(before_recheck, len(gameplay_queries)))
             if res.outcome != VerdictStatus.ACCEPTED:
                 status = res.outcome.value
                 break
@@ -375,7 +379,10 @@ def run_single_puzzle(
         "puzzle_id": puzzle_id,
         "category": category,
         "status": status,
-        "gameplay_queries": [_serialize_query(q) for q in gameplay_queries],
+        "gameplay_queries": [
+            {**_serialize_query(q), "engine_recheck": index in recheck_query_indexes}
+            for index, q in enumerate(gameplay_queries)
+        ],
         "validation_queries": [_serialize_query(q) for q in validation_queries],
     }
     return row, audit_record, loader_mode
