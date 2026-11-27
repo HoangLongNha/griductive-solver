@@ -2,6 +2,9 @@ const { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } = R
 
 const ASSETS = window.GRIDUCTIVE_ASSETS || { ui: {}, characters: [], environments: {} };
 
+// Synthesised sound effects (web/sound.js); silently does nothing if unavailable or muted.
+const sfx = (name, delaySec = 0) => window.GriductiveSound?.play(name, delaySec);
+
 function getInitials(name) {
   return (name || "?")
     .split(/\s+/)
@@ -985,6 +988,33 @@ function placeBriefingCard(rects, cw, ch) {
   return best;
 }
 
+// Speaker button (top-right, above every layer) that mutes all sound; the choice is remembered.
+function SoundToggle() {
+  const sound = window.GriductiveSound;
+  const [muted, setMuted] = useState(() => (sound ? sound.isMuted() : true));
+  useEffect(() => (sound ? sound.subscribe(setMuted) : undefined), [sound]);
+  if (!sound) return null;
+  return (
+    <button
+      type="button"
+      className={`sound-toggle ${muted ? "muted" : ""}`}
+      onClick={() => sound.setMuted(!muted)}
+      aria-pressed={!muted}
+      aria-label={muted ? "Turn sound on" : "Turn sound off"}
+      title={muted ? "Sound off" : "Sound on"}
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path className="sound-toggle-speaker" d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+        {muted ? (
+          <path className="sound-toggle-wave" d="M15.5 9.5l5 5M20.5 9.5l-5 5" />
+        ) : (
+          <path className="sound-toggle-wave" d="M15.5 9a4.5 4.5 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11" />
+        )}
+      </svg>
+    </button>
+  );
+}
+
 const BRIEFING_TWEEN_MS = 700;
 const easeInOutCubic = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 
@@ -1130,9 +1160,10 @@ function RoomBriefing({
   }, [phase, step, armed, current]);
 
   useEffect(() => {
-    if (phase !== "PLAYING") return undefined;
+    if (phase !== "PLAYING" && phase !== "LIGHTS_OFF") return undefined;
     const onKeyDown = (e) => {
       if (e.key === "Escape") onSkip();
+      if (phase !== "PLAYING") return; // during the lights-off flicker only Esc is meaningful
       else if (e.key === "ArrowRight") goTo(step + 1);
       else if (e.key === "ArrowLeft") goTo(step - 1);
       else if (e.key === " ") {
@@ -1143,6 +1174,36 @@ function RoomBriefing({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [phase, step, goTo, onSkip]);
+
+  // Sound: light switch, flashlight click / sweep between objects, lights back on + stamp.
+  const torchLitRef = useRef(false);
+  const skipNextStepSoundRef = useRef(false);
+  useEffect(() => {
+    if (phase === "LIGHTS_OFF") {
+      sfx("switchOff");
+      torchLitRef.current = false;
+    }
+    if (phase === "EXPLORING") {
+      // On return the step advances right away; only that new step should make a sound.
+      torchLitRef.current = false;
+      skipNextStepSoundRef.current = true;
+    }
+    if (phase === "ENDING") {
+      sfx("lightsOn");
+      if (endingVariant === "full") sfx("caseOpen", 0.42); // the stamp lands at ~22% of 1.9 s
+    }
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (phase !== "PLAYING") return;
+    if (skipNextStepSoundRef.current) {
+      skipNextStepSoundRef.current = false;
+      return;
+    }
+    const lit = current.targets.length > 0;
+    if (lit) sfx(torchLitRef.current ? "sweep" : "torchOn");
+    torchLitRef.current = lit;
+  }, [phase, step]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleTargetClick = (name) => {
     if (isLast) {
@@ -1408,6 +1469,47 @@ function App() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [showLedger, openDossierCell, viewState, returnToRoomView]);
 
+  /* ---------- sound effects driven by state changes ---------- */
+  const prevViewRef = useRef(viewState);
+  useEffect(() => {
+    const prev = prevViewRef.current;
+    if (prev === "ROOM" && viewState === "TRANSITIONING") sfx("whoosh");
+    if (prev !== "ROOM" && viewState === "ROOM") sfx("whooshOut");
+    prevViewRef.current = viewState;
+  }, [viewState]);
+
+  const prevLedgerRef = useRef(showLedger);
+  useEffect(() => {
+    if (showLedger && !prevLedgerRef.current) sfx("typewriter");
+    if (!showLedger && prevLedgerRef.current) sfx("close");
+    prevLedgerRef.current = showLedger;
+  }, [showLedger]);
+
+  const prevDossierRef = useRef(openDossierCell);
+  useEffect(() => {
+    if (openDossierCell && openDossierCell !== prevDossierRef.current) sfx("paper");
+    if (!openDossierCell && prevDossierRef.current) sfx("close");
+    prevDossierRef.current = openDossierCell;
+  }, [openDossierCell]);
+
+  useEffect(() => {
+    if (!dispatch) return;
+    const byTitle = { "CASE OPENED": "paper", "BOARD RESET": "pins" };
+    const byOutcome = { ACCEPTED: "stamp", NOT_PROVABLE: "notProvable", CONTRADICTED: "contradicted", INCONSISTENT: "contradicted" };
+    const name = byTitle[dispatch.title] || (dispatch.title === dispatch.type ? byOutcome[dispatch.type] : null);
+    if (name) sfx(name);
+    else if (/ERROR/.test(dispatch.title || "")) sfx("contradicted");
+  }, [dispatch]);
+
+  const prevSolvedRef = useRef(null);
+  useEffect(() => {
+    if (!gameState) return;
+    const key = `${gameState.puzzle_id}:${gameState.solved}`;
+    const wasUnsolvedSameCase = prevSolvedRef.current === `${gameState.puzzle_id}:false`;
+    if (gameState.solved && wasUnsolvedSameCase) sfx("solved", 0.3);
+    prevSolvedRef.current = key;
+  }, [gameState]);
+
   const selectedClueCard = useMemo(() => {
     if (!gameState || !selectedCell) return null;
     return gameState.cards.find((c) => c.cell === selectedCell) || null;
@@ -1517,6 +1619,7 @@ function App() {
   const handleVerdict = (cell, status) => handleProofAction("/api/game/verdict", { cell, status });
 
   const handleHint = async () => {
+    sfx("phone");
     const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
@@ -1539,6 +1642,7 @@ function App() {
   };
 
   const handleAutoSolve = async () => {
+    sfx("deduce");
     const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
@@ -1607,6 +1711,7 @@ function App() {
   };
 
   const resumeBriefingNow = () => {
+    sfx("click");
     setShowLedger(false);
     returnToRoomView();
   };
@@ -1624,6 +1729,8 @@ function App() {
         lampFresh={!briefingSeen && briefingPhase === "OFF"}
       />
 
+
+      <SoundToggle />
 
       <RoomBriefing
         phase={briefingPhase}
@@ -1653,7 +1760,10 @@ function App() {
         highlightedSet={highlightedSet}
         hintInfo={hintInfo}
         dispatch={dispatch}
-        onDismissDispatch={() => setDispatch(null)}
+        onDismissDispatch={() => {
+          sfx("click");
+          setDispatch(null);
+        }}
         onSelectDocument={handleSelectDocument}
         onSubmitVerdict={handleVerdict}
         busy={busy}

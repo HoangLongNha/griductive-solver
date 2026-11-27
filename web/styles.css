@@ -1243,20 +1243,36 @@ select:focus-visible,
   animation: briefing-fade-in 700ms ease both;
 }
 
-/* Switching the light off: the bulb flickers twice, then the room goes dark */
+/* Switching the light off (2.3 s): the weak bulb flickers, flares, dims, then the room goes dark.
+   Same timeline as LIGHTS_OFF_TIMELINE in web/sound.js, so the buzz follows the light. */
 .briefing-lights-off {
   pointer-events: none;
   background: rgba(6, 4, 3, 0.9);
-  animation: briefing-lights-off 1100ms linear forwards;
+  animation: briefing-lights-off 2300ms linear forwards;
 }
 
 @keyframes briefing-lights-off {
-  0% { opacity: 0; }
-  10% { opacity: 0.85; }
-  16% { opacity: 0.1; }
-  30% { opacity: 0.9; }
-  36% { opacity: 0.3; }
-  58%, 100% { opacity: 1; }
+  0.0% { opacity: 0; }
+  21.74% { opacity: 0.05; }
+  23.91% { opacity: 1; }
+  29.57% { opacity: 1; }
+  30.43% { opacity: 0.1; }
+  36.96% { opacity: 0.3; }
+  38.26% { opacity: 0.05; }
+  45.65% { opacity: 0.15; }
+  46.96% { opacity: 1; }
+  51.3% { opacity: 1; }
+  52.17% { opacity: 0.2; }
+  57.39% { opacity: 0.25; }
+  58.26% { opacity: 1; }
+  66.09% { opacity: 1; }
+  67.39% { opacity: 0.45; }
+  76.09% { opacity: 0.55; }
+  77.39% { opacity: 0.4; }
+  84.78% { opacity: 0.5; }
+  97.83% { opacity: 1; }
+  100.0% { opacity: 1; }
+}
 }
 
 @keyframes briefing-fade-in {
@@ -1478,7 +1494,7 @@ select:focus-visible,
 /* Paused chip while the player tries an object (also visible on the board) */
 .briefing-paused-chip {
   position: fixed;
-  right: 18px;
+  right: 68px; /* leaves room for the sound toggle */
   top: 16px;
   z-index: 90;
   display: flex;
@@ -1591,4 +1607,52 @@ select:focus-visible,
   .briefing-ending-stamp {
     display: none;
   }
+}
+
+/* ============================================================
+   SOUND TOGGLE
+   ============================================================ */
+.sound-toggle {
+  position: fixed;
+  top: 16px;
+  right: 18px;
+  z-index: 95; /* stays reachable during the briefing */
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1.5px solid var(--dark-walnut);
+  border-radius: 50%;
+  background: var(--warm-cream);
+  box-shadow: 2px 2px 0 rgba(20, 12, 8, 0.4);
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 180ms ease, background-color 180ms ease;
+}
+
+.sound-toggle:hover,
+.sound-toggle:focus-visible {
+  opacity: 1;
+  background: var(--warm-highlight);
+}
+
+.sound-toggle svg {
+  width: 22px;
+  height: 22px;
+}
+
+.sound-toggle-speaker {
+  fill: var(--dark-walnut);
+}
+
+.sound-toggle-wave {
+  fill: none;
+  stroke: var(--dark-walnut);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+.sound-toggle.muted .sound-toggle-wave {
+  stroke: var(--terracotta);
 }
