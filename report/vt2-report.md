@@ -1,12 +1,13 @@
 ## 📋 Báo Cáo Công Việc Thành Viên VT2 (`@HoangKhang206`) — Biểu Diễn Logic & Mã Hoá CNF
 
 **Phụ trách:** Thành viên 2 (**VT2** — `@HoangKhang206`, Hoàng Khang, MSSV 24120334)  
-**Ngày tổng hợp:** 27/11/2026. Nội dung đối chiếu với repository (nhánh `main` tại commit `05ad812` và nhánh `feat/ui-sound`), lịch sử pull request trên GitHub và kết quả chạy kiểm thử thực tế.  
+**Ngày tổng hợp:** 27/11/2026. Nội dung đối chiếu với repository (nhánh `main` tại commit `4fc49b5`, sau khi merge PR #26), lịch sử pull request trên GitHub và kết quả chạy kiểm thử thực tế.  
 **Phạm vi mã nguồn sở hữu (`docs/TASKS.md`):**
 - `src/griductive/logic/` (`regions.py`, `semantics.py`, `cardinality.py`, `extensions.py`, `encoder.py`, `__init__.py`)
 - `tests/logic/` (`test_semantics.py`, `test_encoder.py`, `test_extensions.py`, `test_cross_check.py`, `test_inference_examples.py`, `cnf_check.py`)
 - `report/sections/cnf.md`
 - Phần làm thêm (giao diện, có trao đổi với nhóm): màn hướng dẫn trong `web/app.jsx`, `web/styles.css`; âm thanh `web/sound.js`, `web/assets/audio/`
+- Ghi chú: PR #24 của ITUSaccident21 (đưa vào `main` qua PR #26) có thêm vào các file của VT2 các vùng không gian mới, đếm theo `status` và clue `CONNECTED`, kèm `tests/logic/test_vt2_spatial_and_connected.py`. Các phần đó không tính là công việc của VT2; VT2 chỉ sửa cách mã hoá `CONNECTED` (mục 4.5).
 
 ### 1. Tổng Quan Nhiệm Vụ Của VT2
 VT2 chịu trách nhiệm **lớp logic**: chuyển dữ liệu clue của một vụ án thành công thức logic mệnh đề dạng CNF, để DPLL (VT3) và Agent (VT4) suy luận. Ba yêu cầu xuyên suốt:
@@ -24,7 +25,8 @@ VT2 chịu trách nhiệm **lớp logic**: chuyển dữ liệu clue của một
 | Task 2.4 — Đối chiếu & dẫn xuất | Đối chiếu vét cạn evaluator ⇔ CNF, ví dụ suy luận, phần báo cáo CNF | `tests/logic/`, `report/sections/cnf.md`; PR #9 |
 | Làm thêm — Review chéo | Review PR của VT1, VT3, VT4 | PR #11, #12, #14, #15, #16, #18 (mục 4.2) |
 | Làm thêm — Màn hướng dẫn | Đèn trần làm công tắc, đèn pin giới thiệu các đồ vật | `web/app.jsx`, `web/styles.css`; PR #23 |
-| Làm thêm — Âm thanh | Hiệu ứng, tiếng đèn, nhạc nền, nút tắt tiếng | `web/sound.js`, `web/assets/audio/`; nhánh `feat/ui-sound` |
+| Làm thêm — Âm thanh | Hiệu ứng, tiếng đèn, nhạc nền, nút tắt tiếng | `web/sound.js`, `web/assets/audio/`; PR #25 |
+| Làm thêm — Sửa lỗi PR #24 | Mã hoá `CONNECTED` cho vùng lớn, loader dự phòng khớp `jsonschema` | `logic/extensions.py`, `game/loader.py`; PR #26 (mục 4.5) |
 
 ### 2. Chi Tiết Các Hạng Mục Công Việc Đã Hoàn Thành
 
@@ -149,34 +151,44 @@ VT2 chịu trách nhiệm **lớp logic**: chuyển dữ liệu clue của một
   | COMPOUND | A1 Criminal, B1 Innocent, (A1 ∧ ¬B1) → C1 | C1 **Criminal**; tiền đề sai thì **UNKNOWN** |
   | KB mâu thuẫn | `(1) ∧ (¬1)` | mọi ô **INCONSISTENT** |
 
-- **Số biến và số mệnh đề** đo trực tiếp trên bộ puzzle của nhóm (primary / aux / clauses):
+- **Số biến và số mệnh đề** đo trực tiếp trên bộ puzzle hiện tại của nhóm (`main` tại `4fc49b5`, sau khi PR #24/#26 thiết kế lại 6 puzzle), theo dạng primary / aux / clauses:
 
-  | Puzzle | Toàn bộ clue | KB₀ (ban đầu) |
-  | :--- | :---: | :---: |
-  | `tutorial_3x3` | 9 / 0 / 20 | 9 / 0 / 2 |
-  | `extensions_3x3` | 9 / 0 / 21 | 9 / 0 / 2 |
-  | `neighbors_cells_3x3` | 9 / 0 / 116 | 9 / 0 / 3 |
-  | `chain_4x4_a`, `chain_4x4_b` | 16 / 0 / 16 | 16 / 0 / 2 |
-  | `extensions_4x4` | 16 / 0 / 80 | 16 / 0 / 3 |
-  | `mixed_counting_4x4` | 16 / 0 / 162 | 16 / 0 / 3 |
-  | `case_5x5_a` | 25 / 0 / 311 | 25 / 0 / 3 |
-  | `ambiguous_3x3` *(chẩn đoán)* | 9 / 0 / 19 | 9 / 0 / 1 |
-  | `stuck_4x4` *(chẩn đoán)* | 16 / 0 / 37 | 16 / 0 / 2 |
+  | Puzzle | Toàn bộ clue | KB₀ (ban đầu) | Auto-Deduce |
+  | :--- | :---: | :---: | :---: |
+  | `tutorial_3x3` | 9 / 0 / 20 | 9 / 0 / 2 | SOLVED, 8 bước |
+  | `extensions_3x3` | 9 / 0 / 21 | 9 / 0 / 2 | SOLVED, 8 bước |
+  | `neighbors_cells_3x3` | 9 / 0 / 28 | 9 / 0 / 12 | SOLVED, 7 bước |
+  | `chain_4x4_a` | 16 / 0 / 80 | 16 / 0 / 3 | SOLVED, 15 bước |
+  | `chain_4x4_b` | 16 / 0 / 74 | 16 / 0 / 3 | SOLVED, 15 bước |
+  | `extensions_4x4` | 16 / 0 / 72 | 16 / 0 / 16 | SOLVED, 13 bước |
+  | `mixed_counting_4x4` | 16 / 0 / 82 | 16 / 0 / 20 | SOLVED, 13 bước |
+  | `case_5x5_a` | 25 / 0 / 180 | 25 / 0 / 31 | SOLVED, 22 bước |
+  | `ambiguous_3x3` *(chẩn đoán)* | 9 / 0 / 19 | 9 / 0 / 1 | — |
+  | `stuck_4x4` *(chẩn đoán)* | 16 / 0 / 37 | 16 / 0 / 2 | — |
 
-  Mọi vùng hàng, cột, neighbors (n ≤ 8) đều nằm dưới ngưỡng 256, nên không puzzle nào dùng biến phụ; sequential counter và chuỗi XOR hiện chỉ chạy trong test. Số mệnh đề tăng mạnh khi có clue đếm trên vùng `neighbors` 8 ô: EXACTLY(4, 8 ô) tốn C(8,5) + C(8,5) = 112 mệnh đề. `inconsistent_public_3x3` bị loader từ chối nên không có trong bảng. Toàn bộ dẫn xuất được trình bày trong `report/sections/cnf.md`.
+  Cột Auto-Deduce lấy từ `python -m benchmark.run --runs 1`, chạy bằng encoder, DPLL và Agent thật.
+
+  Mọi vùng trong bộ puzzle đều nằm dưới ngưỡng 256, nên không puzzle nào dùng biến phụ. Sequential counter, chuỗi XOR và mã hoá reachability của `CONNECTED` hiện chỉ chạy trong test.
+
+  Công thức cho thấy vì sao clue đếm trên vùng `neighbors` 8 ô tốn nhiều mệnh đề: EXACTLY(4, 8 ô) cần C(8,5) + C(8,5) = 112 mệnh đề. Ở bộ puzzle trước PR #24, `neighbors_cells_3x3` có 116 mệnh đề và `case_5x5_a` có 311.
+
+  `inconsistent_public_3x3` bị loader từ chối nên không có trong bảng. Toàn bộ dẫn xuất được trình bày trong `report/sections/cnf.md`.
 
 #### 2.5. Bộ Kiểm Thử Logic (`tests/logic/`)
-Xây dựng **159 bài kiểm thử tự động** chia thành 5 bộ test:
+Xây dựng **169 bài kiểm thử tự động** chia thành 5 bộ test. Gồm 159 test của task 2.1–2.4, cộng 10 test `CONNECTED` thêm khi sửa PR #24. Thư mục `tests/logic` còn có 15 test trong `test_vt2_spatial_and_connected.py` do ITUSaccident21 viết; cả thư mục có 184 test.
 
 | File kiểm thử | Số lượng test | Nội dung kiểm thử chính |
 | :--- | :---: | :--- |
 | `test_semantics.py` | 54 | Giải vùng (neighbors 8/5/3 ô, vùng rỗng bị từ chối), biên của k, tham số sai, evaluator khớp `fixture_oracle` trên 800 clue ngẫu nhiên, evaluator chạy được khi mọi hàm sinh CNF bị vô hiệu hoá. |
 | `test_encoder.py` | 40 | Mệnh đề chuẩn của SAME/DIFFERENT, tương đương cho mọi k và mọi loại vùng, sequential counter n = 1…7, chỉ thẻ đã lật vào KB, KB không đổi khi clue ẩn đổi, đếm biến/mệnh đề, mô hình của `encode_full_clues` khớp `fixture_oracle`. |
-| `test_extensions.py` | 47 | PARITY với 0–3 Criminal, chuỗi XOR n = 1…6 và tự chuyển sang XOR ở n = 10, bảng chân trị COMPOUND, extension quyết định verdict ở mức gameplay. |
+| `test_extensions.py` | 57 | PARITY với 0–3 Criminal, chuỗi XOR n = 1…6 và tự chuyển sang XOR ở n = 10, bảng chân trị COMPOUND, extension quyết định verdict ở mức gameplay; `CONNECTED` ở cả hai cách mã hoá (mục 4.5). |
 | `test_cross_check.py` | 14 | VER-01 duyệt vét cạn trên 3×3 và 4×4; VER-03 tham số sai, encoding tất định. |
 | `test_inference_examples.py` | 4 | Ví dụ chung 1.3a và các ví dụ suy luận ở mục 2.4. |
 
-Ngoài test thông thường, VT2 **thử đột biến** để đo độ mạnh của test: xoá một mệnh đề của sequential counter thì 6 test fail; đảo dấu cổng XOR của PARITY thì 10 test fail.
+Ngoài test thông thường, VT2 **thử đột biến** để đo độ mạnh của test:
+- xoá một mệnh đề của sequential counter: 6 test fail;
+- đảo dấu cổng XOR của PARITY: 10 test fail;
+- làm sai từng thành phần của mã hoá reachability: 5–6 test fail mỗi lần.
 
 ### 3. Kiến Trúc Và Tích Hợp
 Encoder giữ đúng chữ ký trong `docs/CONTRACTS.md` §3, nên các vai trò khác dùng trực tiếp, không cần lớp chuyển đổi:
@@ -200,6 +212,7 @@ Puzzle ───────────► │ encode_full_clues ────�
 | `game/controller.py` (VT1) | `encode_kb` | `AgentVerdictOracle`, Hint, Auto Solve, bước chứng minh từng thẻ |
 | `web/controller.py` (VT5) | `referenced_cells` | Highlight các ô mà một clue nhắc tới |
 | `benchmark/run.py` | `validate_clue`, `encode_kb`, `encode_full_clues` | Kiểm tra dữ liệu, đo số biến và số mệnh đề theo từng bước |
+| `game/loader.py` (VT1, từ PR #24) | `resolve_region`, `evaluate_clue` | Kiểm tra lời giải ẩn khi nạp puzzle bằng đúng ngữ nghĩa của VT2 |
 
 - **Phân tách trách nhiệm**: VT2 chỉ biến dữ liệu thành CNF; quyết định "chứng minh được hay không" thuộc DPLL và Agent. Vì vậy lớp logic kiểm thử được hoàn toàn mà không cần solver thật.
 - **Khớp trace với CNF thật**: Agent và `encode_kb` cùng duyệt thẻ đã lật theo row-major trên cùng một `PublicState`, nên `active_clue_ids` trong trace khớp đúng với CNF gửi cho DPLL.
@@ -223,7 +236,7 @@ Mỗi PR được ghép thử với `main`, chạy toàn bộ test và đo bằn
 | #16 | 4.4 Agent integration (VT4) | Test AGI-01 chỉ pass nhờ đọc `game._oracle`; báo cáo dẫn file `docs/ARCHITECTURE.md` không tồn tại. | Dùng log công khai trong test; sửa tài liệu tham khảo. Approve 22/11. |
 | #18 (#17) | 1.3.1 Controller (VT1) | Hai PR trùng một nhánh; conflict ở `benchmark/run.py`; giao diện ẩn các puzzle chẩn đoán nên không demo được trạng thái STUCK. | Đóng PR trùng, giữ bản benchmark của PR (339 test pass), thêm mục "diagnostic". Approve 25/11. |
 
-Khi kiểm tra bản `main` ngày 25/11, VT2 phát hiện giao diện vẫn chạy bằng `FakeController` (duyệt vét cạn thay cho encoder, DPLL và Agent thật): puzzle 5×5 dừng ở STUCK sau 0 bước trên giao diện, trong khi benchmark giải được. PR #18 nối giao diện với Controller thật; VT2 kiểm tra lại và Auto-Deduce giải 5×5 trong 24 bước. Các mục review là đóng góp kiểm tra; phần sửa vẫn do tác giả PR thực hiện.
+Khi kiểm tra bản `main` ngày 25/11, VT2 phát hiện giao diện vẫn chạy bằng `FakeController` (duyệt vét cạn thay cho encoder, DPLL và Agent thật): puzzle 5×5 dừng ở STUCK sau 0 bước trên giao diện, trong khi benchmark giải được. PR #18 nối giao diện với Controller thật; VT2 kiểm tra lại và Auto-Deduce giải 5×5 trong 24 bước (bộ puzzle lúc đó, trước PR #24). Các mục review là đóng góp kiểm tra; phần sửa vẫn do tác giả PR thực hiện.
 
 #### 4.3. Làm thêm — Màn hướng dẫn trong phòng làm việc (PR #23, merge 26/11)
 Người chơi mới không biết đồ vật nào trong phòng bấm được và chúng làm gì. VT2 làm màn hướng dẫn theo phong cách noir của game, chỉ sửa `web/app.jsx`, `web/styles.css`, không đụng backend.
@@ -245,7 +258,7 @@ OFF ──(bấm đèn trần)──► LIGHTS_OFF ──(2,3 s / Esc bỏ qua)�
 
 Kiểm chứng bằng kịch bản tự động điều khiển Chrome headless qua DevTools Protocol: 22 kiểm tra gồm tự chạy, tạm dừng, thử đồ vật, vị trí chùm sáng, Esc, tải lại trang và xem lại; không có lỗi JavaScript.
 
-#### 4.4. Làm thêm — Âm thanh (nhánh `feat/ui-sound`, chưa tạo PR tại thời điểm viết)
+#### 4.4. Làm thêm — Âm thanh (PR #25)
 - **Hiệu ứng theo trạng thái game**: đóng dấu khi verdict được chấp nhận, tiếng gõ khi NOT_PROVABLE, tiếng "sai" khi CONTRADICTED, chuông điện thoại cho Hint, máy đánh chữ cho Ledger, hợp âm khi phá án, tiếng giấy và tiếng đóng khi mở/đóng hồ sơ hoặc bấm X.
 - **Tiếng đèn trong màn hướng dẫn**: tiếng công tắc, tiếp đó là tiếng bóng đèn yếu rè rè chập chờn theo đúng nhịp nhấp nháy trên màn hình (cùng mốc 2,3 s với `@keyframes briefing-lights-off`), tiếng bật và lia đèn pin, tiếng đèn bật lại khi kết thúc.
 - **Nhạc nền** noir jazz nhẹ (Rê thứ, 70 bpm), tổng hợp bằng Web Audio API, âm lượng thấp để không lấn hiệu ứng.
@@ -263,26 +276,71 @@ bấm đèn trần ──► play("switchOff")
                                                           play("sweep") mỗi lần chuyển đồ vật
 ```
 
-Kiểm chứng bằng kịch bản Chrome headless riêng (22 kiểm tra: âm phát đúng sự kiện, nút tắt tiếng, Esc lúc đèn tắt) và chạy lại kịch bản của màn hướng dẫn (22/22).
+Kiểm chứng bằng kịch bản Chrome headless riêng (22 kiểm tra: âm phát đúng sự kiện, nút tắt tiếng, Esc lúc đèn tắt) và chạy lại kịch bản của màn hướng dẫn (22/22). Khi ghép với `main` sau PR #26, chỉ có một conflict ở đầu `handleHint`: giữ cả `sfx("phone")` lẫn khối gợi ý 2 bước của PR #24. Sau khi ghép, cả hai kịch bản vẫn đạt 22/22.
+
+#### 4.5. Làm thêm — Sửa hai lỗi của PR #24 (PR #26)
+PR #24 (ITUSaccident21) thêm vùng không gian mới, đếm theo `status`, clue `CONNECTED` và bộ puzzle mới. HoangLongNha (VT1) review và chỉ ra hai lỗi:
+- **[P1]** `CONNECTED` duyệt hết 2ⁿ cấu hình: vùng 25 ô cần duyệt 33.554.432 cấu hình trước khi tới solver, vượt timeout.
+- **[P2]** Khi máy không có `jsonschema`, loader dự phòng kiểm dữ liệu khác bản dùng `jsonschema`.
+
+Vì [P1] nằm trong file của VT2, VT2 sửa cả hai lỗi ở PR #26. PR này giữ nguyên commit gốc của PR #24 và thay PR #24 khi merge vào `main` (merge ngày 27/11).
+
+- **[P1] `CONNECTED` (`logic/extensions.py`, `logic/encoder.py`)**: làm giống cách PARITY chuyển sang chuỗi XOR khi vùng lớn.
+  - Vùng có 2ⁿ ≤ 256 (tối đa 8 ô): giữ cách loại trực tiếp.
+  - Vùng lớn hơn: mã hoá reachability, tốn n² biến phụ.
+
+  ```text
+  encode_connected(cells, lits)              lits[i] đúng ⇔ ô i có status cần xét ("active")
+      │
+      ├─ 2ⁿ ≤ 256 ──► loại trực tiếp mọi cấu hình không liên thông 4 hướng
+      │
+      └─ 2ⁿ > 256 ──► root_i  (n biến):  root_i → lits[i];  không có 2 root;  có ô active ⇒ có root
+                      reach_{i,d}  (d = 1 … n−1):
+                          reach_{i,d} → lits[i]
+                          reach_{i,d} → reach_{i,d−1} ∨ ⋁_{j kề i} reach_{j,d−1}     (reach_{·,0} = root)
+                      mọi ô active phải tới được:  lits[i] → reach_{i,n−1}
+  ```
+
+  Mã hoá này đúng theo hai chiều:
+  - Nếu các ô active liên thông, chọn một ô bất kỳ làm root và gán `reach_{i,d}` = "khoảng cách từ root ≤ d". Mọi mệnh đề đều thỏa.
+  - Ngược lại, mỗi ô active lần ngược được về root qua các ô active kề nhau, nên các ô active phải liên thông.
+
+  | Vùng | Trước | Sau |
+  | :--- | :---: | :---: |
+  | `edges` 5×5 (16 ô) | 65.294 mệnh đề | 648 mệnh đề, 256 biến phụ |
+  | 25 ô trên 5×5 | duyệt 33.554.432 cấu hình | 1.575 mệnh đề, 625 biến phụ, khoảng 0,5 ms |
+
+  Kiểm chứng: thêm 10 test đối chiếu vét cạn với evaluator ở cả hai cách mã hoá. Thử 3 đột biến (bỏ "chỉ một root", bỏ "mọi ô active phải tới được", cho đi qua ô không kề), lần nào test cũng fail.
+- **[P2] Loader dự phòng (`game/loader.py`)**:
+  - Vùng con của `intersection` được kiểm đệ quy và không được lồng `intersection`, khớp `schemas/puzzle.schema.json`.
+  - Danh sách ô được kiểm kiểu trước khi gọi `set()`, nên `initial_revealed=[{}]` báo `PuzzleValidationError` thay vì `TypeError`.
+  - Test mới `tests/game/test_loader_fallback.py` nạp một bản loader riêng trong lúc chặn `jsonschema`, rồi so với `jsonschema` thật trên mọi puzzle và 16 ca dữ liệu sai. Với loader của PR #24, 12/30 test fail; sau khi sửa, 30/30 pass.
 
 ### 5. Kết Quả Nghiệm Thu
-- **Chạy kiểm thử phần logic (`python -m pytest -q tests/logic`)**: `159 passed`.
-- **Chạy kiểm thử toàn bộ dự án (`python -m pytest -q`, `main` tại `05ad812`)**: `374 passed`.
-- **Chạy thật trên giao diện**: Auto-Deduce giải `case_5x5_a` trong 24 bước bằng encoder, DPLL và Agent thật; màn hướng dẫn và âm thanh chạy trên Chrome không lỗi JavaScript.
-- **Pull request**: #6 (2.1), #7 (2.2), #8 (2.3), #9 (2.4) đã merge vào `main` ngày 18/11 (người merge: HoangLongNha); #23 (màn hướng dẫn) merge ngày 26/11; âm thanh nằm trên nhánh `feat/ui-sound`, chưa tạo PR.
-- **Tuân thủ quy trình Git & quyền sở hữu file**: phần logic chỉ sửa file thuộc VT2 trong `docs/TASKS.md`; phần giao diện làm thêm được trao đổi với nhóm và ghi rõ trong PR; review chỉ góp ý, không sửa trực tiếp file của thành viên khác.
+- **Chạy kiểm thử phần logic (`python -m pytest -q tests/logic`)**: `184 passed`, trong đó 169 test của VT2.
+- **Chạy kiểm thử toàn bộ dự án (`python -m pytest -q`, `main` tại `4fc49b5` ghép với PR #25)**: `429 passed`.
+- **Chạy thật**: Auto-Deduce giải cả 8 puzzle chính bằng encoder, DPLL và Agent thật (bảng ở mục 2.4); màn hướng dẫn và âm thanh chạy trên Chrome không lỗi JavaScript.
+- **Pull request**:
+  - #6 (2.1), #7 (2.2), #8 (2.3), #9 (2.4): merge vào `main` ngày 18/11, người merge là HoangLongNha.
+  - #23 (màn hướng dẫn): merge ngày 26/11.
+  - #26 (sửa PR #24): merge ngày 27/11.
+  - #25 (âm thanh và báo cáo).
+- **Tuân thủ quy trình Git & quyền sở hữu file**:
+  - Phần logic chỉ sửa file thuộc VT2 trong `docs/TASKS.md`.
+  - Phần giao diện làm thêm được trao đổi với nhóm và ghi rõ trong PR.
+  - Review chỉ góp ý, không sửa trực tiếp file của thành viên khác. Ngoại lệ duy nhất là `game/loader.py` ở PR #26, sửa để xử lý lỗi [P2] trong review của PR #24 và ghi rõ trong mô tả PR.
 - **Giới hạn đã biết**:
   - Ngưỡng `DIRECT_CLAUSE_LIMIT = 256` do nhóm chọn, chưa tối ưu bằng thực nghiệm.
   - CNF không loại mệnh đề trùng giữa các clue khác nhau.
   - COMPOUND chỉ hỗ trợ dạng hội literal suy ra một literal.
-  - Bộ puzzle hiện tại chưa có vùng đủ lớn để kích hoạt sequential counter hay chuỗi XOR khi chơi.
+  - Bộ puzzle hiện tại chưa có vùng đủ lớn để kích hoạt sequential counter, chuỗi XOR hay mã hoá reachability khi chơi.
   - Trên màn hình rất rộng hoặc thấp (ultrawide, 1366×768), tranh nền bị cắt nên ngọn đèn trần có thể bị che một phần.
 
 ### 6. Phụ Lục Sử Dụng Generative AI
 **Công cụ:** Claude Code (trợ lý lập trình của Anthropic), chạy trong VS Code trên repository của nhóm.
 
 **Cách phân chia công việc với AI:**
-- **Thành viên:** đọc đặc tả và chia việc; đặt yêu cầu, ràng buộc và tiêu chí nghiệm thu cho từng phần; nghiệm thu và yêu cầu chỉnh lại khi kết quả chưa đúng; tự commit, push, tạo PR và đăng review.
+- **Thành viên:** đọc đặc tả và chia việc; đặt yêu cầu, ràng buộc và tiêu chí nghiệm thu cho từng phần; nghiệm thu và yêu cầu chỉnh lại khi kết quả chưa đúng; quyết định mọi commit, push, PR, merge và tự đăng review.
 - **AI:** lập trình từng phần nhỏ theo yêu cầu; đề xuất phương án kỹ thuật khi được hỏi, để thành viên kiểm tra; chạy test và đo đạc; soạn nháp văn bản.
 - **Trình bày:** mỗi mục bên dưới gồm prompt chính và các điều chỉnh của thành viên sau khi kiểm tra kết quả. Prompt được biên tập lại từ yêu cầu gốc cho rõ ràng; nội dung yêu cầu giữ nguyên.
 
@@ -312,14 +370,18 @@ Kiểm chứng bằng kịch bản Chrome headless riêng (22 kiểm tra: âm ph
 
 > **P6 — Kiểm tra bản tích hợp.** Kéo bản `main` mới nhất, chạy chương trình và giải thích các thành phần bấm được trên giao diện mà tôi chưa rõ cách dùng.
 
+> **P7 — Sửa lỗi trong PR của thành viên khác.** Kéo PR mới nhất về, kiểm tra và ghép thử với nhánh âm thanh. Với đoạn `CONNECTED` duyệt 2ⁿ cấu hình: nếu nhận định đúng là lỗi thì sửa theo cách của nhóm. Sau đó sửa luôn lỗi còn lại trong review của anh Long, để dùng thẳng PR của chúng tôi thay cho PR #24, rồi merge cả hai PR vào `main`. Commit và PR không có dấu hiệu AI.
+
+- **Điều chỉnh của thành viên:** chọn cách mở PR sửa nhắm vào nhánh của PR #24, sau đó đổi sang thay hẳn PR #24; quyết định thời điểm merge.
+
 #### 6.3. Màn hướng dẫn (UI/UX)
-> **P7 — Ý tưởng và mô phỏng trước.** Người chơi không biết các nút ban đầu bấm được và có tác dụng gì. Tôi muốn một màn hướng dẫn theo phong cách của game:
+> **P8 — Ý tưởng và mô phỏng trước.** Người chơi không biết các nút ban đầu bấm được và có tác dụng gì. Tôi muốn một màn hướng dẫn theo phong cách của game:
 > - làm tối nền;
 > - các đồ vật bấm được sáng lên và có chú thích.
 >
 > Đánh giá và mô phỏng trước khi làm.
 
-> **P8 — Hành vi mong muốn.** Màn hướng dẫn chạy như một đoạn video:
+> **P9 — Hành vi mong muốn.** Màn hướng dẫn chạy như một đoạn video:
 > - bấm để bắt đầu, xong thì có hiệu ứng kết thúc và chuyển sang màn chính;
 > - trong lúc một đồ vật đang sáng, người chơi vẫn bấm thử được;
 > - lần đầu vào game thì tự chạy, dừng ở mỗi đồ vật một khoảng phù hợp;
@@ -333,11 +395,11 @@ Kiểm chứng bằng kịch bản Chrome headless riêng (22 kiểm tra: âm ph
   - Bỏ nút "?": dùng chính bóng đèn trong tranh, lần đầu có dấu "!" nhảy cạnh đèn để người chơi biết mà bấm.
 
 #### 6.4. Âm thanh
-> **P9 — Hiệu ứng và nhạc nền.** Thêm âm thanh cho trò chơi. Chỉnh từng âm một.
+> **P10 — Hiệu ứng và nhạc nền.** Thêm âm thanh cho trò chơi. Chỉnh từng âm một.
 > - Khi tắt đèn: tiếng công tắc, rồi tiếng rè rè của bóng điện yếu chớp chớp, rồi tắt.
 > - Nhạc nền: kịch tính nhưng nhẹ nhàng.
 
-> **P10 — Nguồn âm do thành viên chọn.** Tiếng công tắc lấy từ file `dragon-studio-light-switch-382712`. Tiếng rè lấy theo file `freesound_community-room-with-buzz-incandescent-light-bulb-23892`. Cả hai file nằm trong thư mục tải về.
+> **P11 — Nguồn âm do thành viên chọn.** Tiếng công tắc lấy từ file `dragon-studio-light-switch-382712`. Tiếng rè lấy theo file `freesound_community-room-with-buzz-incandescent-light-bulb-23892`. Cả hai file nằm trong thư mục tải về.
 
 - **Điều chỉnh của thành viên:**
   - Tiếng rè chưa đúng bản ghi: chọn lại đúng đoạn có tiếng rè.
@@ -345,23 +407,15 @@ Kiểm chứng bằng kịch bản Chrome headless riêng (22 kiểm tra: âm ph
   - Làm lại tiếng sau công tắc khi bật đèn.
   - Thêm âm thanh khi bấm X và khi thoát.
 
-#### 6.5. Dọn mã và báo cáo
-> **P11 — Phạm vi dọn mã.** Chỉ dọn mã thừa trong những phần chúng tôi viết, không động vào phần của thành viên khác.
-
-> **P12 — Báo cáo.** Gom thành một file `vt2-report` theo cấu trúc báo cáo VT4 của Project 1:
-> - trình bày theo task, thêm các việc làm thêm để hỗ trợ thành viên khác;
-> - phần nào phức tạp thì vẽ luồng;
-> - lấy các phần phù hợp từ `cnf.md`.
-
-#### 6.6. Kiểm soát kết quả do AI tạo ra
-- **Mã nguồn:** kiểm bằng `pytest` (159 test logic, 374 test toàn dự án), đối chiếu vét cạn với bộ đánh giá độc lập và thử đột biến.
+#### 6.5. Kiểm soát kết quả do AI tạo ra
+- **Mã nguồn:** kiểm bằng `pytest` (169 test của VT2, 429 test toàn dự án), đối chiếu vét cạn với bộ đánh giá độc lập và thử đột biến.
 - **Giao diện và âm thanh:** thành viên chạy thử trực tiếp, nhận xét qua ảnh chụp màn hình và nghe thử; ngoài ra có kịch bản Chrome headless, 22 kiểm tra cho mỗi phần.
 - **Review và báo cáo:** nhận xét review do thành viên đọc lại và tự đăng; số liệu trong báo cáo được đo lại từ mã nguồn và lịch sử PR.
-- **Git:** việc commit, push và tạo PR do thành viên tự thực hiện.
+- **Git:** thành viên quyết định mọi commit, push, PR và merge. Phần lớn do thành viên tự chạy; PR #25 và #26 do AI thực hiện theo yêu cầu trực tiếp của thành viên, đứng tên thành viên.
 
 ### 7. Nguồn Đối Chiếu
-1. Repository [HoangLongNha/griductive-solver](https://github.com/HoangLongNha/griductive-solver): `main` tại commit `05ad812`; nhánh `feat/ui-sound`.
-2. Pull request của VT2: [#6](https://github.com/HoangLongNha/griductive-solver/pull/6), [#7](https://github.com/HoangLongNha/griductive-solver/pull/7), [#8](https://github.com/HoangLongNha/griductive-solver/pull/8), [#9](https://github.com/HoangLongNha/griductive-solver/pull/9), [#23](https://github.com/HoangLongNha/griductive-solver/pull/23).
+1. Repository [HoangLongNha/griductive-solver](https://github.com/HoangLongNha/griductive-solver): `main` tại commit `4fc49b5`; nhánh `feat/ui-sound`.
+2. Pull request của VT2: [#6](https://github.com/HoangLongNha/griductive-solver/pull/6), [#7](https://github.com/HoangLongNha/griductive-solver/pull/7), [#8](https://github.com/HoangLongNha/griductive-solver/pull/8), [#9](https://github.com/HoangLongNha/griductive-solver/pull/9), [#23](https://github.com/HoangLongNha/griductive-solver/pull/23), [#25](https://github.com/HoangLongNha/griductive-solver/pull/25), [#26](https://github.com/HoangLongNha/griductive-solver/pull/26) (thay [#24](https://github.com/HoangLongNha/griductive-solver/pull/24)).
 3. PR đã review: [#11](https://github.com/HoangLongNha/griductive-solver/pull/11), [#12](https://github.com/HoangLongNha/griductive-solver/pull/12), [#14](https://github.com/HoangLongNha/griductive-solver/pull/14), [#15](https://github.com/HoangLongNha/griductive-solver/pull/15), [#16](https://github.com/HoangLongNha/griductive-solver/pull/16), [#18](https://github.com/HoangLongNha/griductive-solver/pull/18).
 4. Russell, S., & Norvig, P. (2020). *Artificial Intelligence: A Modern Approach* (4th ed.), chương 7 — logic mệnh đề, CNF, entailment.
 5. Sinz, C. (2005). *Towards an Optimal CNF Encoding of Boolean Cardinality Constraints*. CP 2005, LNCS 3709 — sequential counter.
