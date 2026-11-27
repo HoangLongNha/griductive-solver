@@ -290,9 +290,11 @@ def run_single_puzzle(
                 break
 
             before_recheck = len(gameplay_queries)
-            res = session.submit_verdict(forced[0], forced[1])
-            recheck_sat_calls += len(gameplay_queries) - before_recheck
-            recheck_query_indexes.update(range(before_recheck, len(gameplay_queries)))
+            try:
+                res = session.submit_verdict(forced[0], forced[1])
+            finally:
+                recheck_sat_calls += len(gameplay_queries) - before_recheck
+                recheck_query_indexes.update(range(before_recheck, len(gameplay_queries)))
             if res.outcome != VerdictStatus.ACCEPTED:
                 status = res.outcome.value
                 break

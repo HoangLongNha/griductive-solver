@@ -121,3 +121,50 @@ def test_benchmark_retains_timeout_row_and_verifier_catches_counter_drift(tmp_pa
         writer.writerow(row_bad)
     errors = verify_results(out_dir)
     assert any("BEN-01" in err for err in errors)
+
+
+def test_timeout_during_recheck_preserves_completed_query(monkeypatch, tmp_path: Path) -> None:
+    """A completed recheck query remains counted when the next query times out."""
+    import benchmark.run as runner
+    from griductive.game.session import GameSession
+    from griductive.models import SolverTimeout
+
+    original_submit = GameSession.submit_verdict
+    original_solve = runner.solve
+
+    def submit_with_timeout(self, cell, status):
+        calls = 0
+
+        def timeout_on_second(cnf, assumptions=(), *, timeout_s=None):
+            nonlocal calls
+            calls += 1
+            if calls == 2:
+                raise SolverTimeout("recheck timeout")
+            return original_solve(cnf, assumptions, timeout_s=timeout_s)
+
+        with monkeypatch.context() as patch:
+            patch.setattr(runner, "solve", timeout_on_second)
+            return original_submit(self, cell, status)
+
+    monkeypatch.setattr(GameSession, "submit_verdict", submit_with_timeout)
+    row, record, _ = runner.run_single_puzzle(PUZZLES_DIR / "3x3" / "tutorial_3x3.json", "3x3", 1, 10.0)
+
+    assert row["status"] == "TIMEOUT"
+    assert row["recheck_sat_calls"] == 1
+    marked = [query for query in record["gameplay_queries"] if query["engine_recheck"]]
+    assert len(marked) == 1
+    out_dir = tmp_path / "results"
+    out_dir.mkdir()
+    with (out_dir / "summary.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+    (out_dir / "audit.json").write_text(json.dumps({"metadata": {}, "records": [record]}), encoding="utf-8")
+    assert verify_results(out_dir) == []
+
+    row["recheck_sat_calls"] = 0
+    with (out_dir / "summary.csv").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+    assert any("recheck_sat_calls" in error for error in verify_results(out_dir))
