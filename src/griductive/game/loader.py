@@ -15,6 +15,45 @@ except ModuleNotFoundError:  # pragma: no cover - stdlib fallback when optional 
         absolute_path: tuple[object, ...]
         message: str
 
+    def _cell_list_ok(value: object, length: int | None = None) -> bool:
+        """Non-empty list of distinct cell ids; types are checked before hashing."""
+        return (isinstance(value, list) and bool(value)
+                and all(isinstance(x, str) and _CELL_RE.match(x) for x in value)
+                and len(set(value)) == len(value)
+                and (length is None or len(value) == length))
+
+    def _region_error(reg: object, nested: bool = False) -> str | None:
+        """Message for an invalid region (schema v1 + spatial types), None when valid.
+
+        Intersection sub-regions are checked recursively and may not nest another intersection.
+        """
+        if not isinstance(reg, dict) or not isinstance(reg.get('type'), str):
+            return 'Invalid region'
+        rtype = reg['type']
+        if rtype == 'row':
+            index = reg.get('index')
+            ok = set(reg) == {'type', 'index'} and type(index) is int and index >= 1
+        elif rtype == 'column':
+            index = reg.get('index')
+            ok = (set(reg) == {'type', 'index'} and isinstance(index, str)
+                  and re.match(r'^[A-Z]$', index) is not None)
+        elif rtype in ('neighbors', 'above', 'below', 'left_of', 'right_of'):
+            cell = reg.get('cell')
+            ok = set(reg) == {'type', 'cell'} and isinstance(cell, str) and _CELL_RE.match(cell) is not None
+        elif rtype in ('between', 'common_neighbors'):
+            ok = set(reg) == {'type', 'cells'} and _cell_list_ok(reg.get('cells'), 2)
+        elif rtype in ('corners', 'edges'):
+            ok = set(reg) == {'type'}
+        elif rtype == 'intersection' and not nested:
+            sub = reg.get('regions')
+            ok = (set(reg) == {'type', 'regions'} and isinstance(sub, list) and len(sub) >= 2
+                  and all(_region_error(r, nested=True) is None for r in sub))
+        elif rtype == 'cells':
+            ok = set(reg) == {'type', 'cells'} and _cell_list_ok(reg.get('cells'))
+        else:
+            return 'Invalid region type'
+        return None if ok else f'Invalid {rtype} region'
+
     class Draft202012Validator:  # type: ignore[no-redef]
         def __init__(self, schema: dict) -> None:
             self.schema = schema
@@ -34,8 +73,7 @@ except ModuleNotFoundError:  # pragma: no cover - stdlib fallback when optional 
             if type(raw['size']) is not int or not (3 <= raw['size'] <= 5):
                 yield _SchemaError(('size',), 'size must be an integer in 3..5')
             init = raw['initial_revealed']
-            if (not isinstance(init, list) or not init or len(set(init)) != len(init)
-                    or not all(isinstance(x, str) and _CELL_RE.match(x) for x in init)):
+            if not _cell_list_ok(init):
                 yield _SchemaError(('initial_revealed',), 'Invalid initial_revealed list')
             cards = raw['cards']
             if not isinstance(cards, list) or len(cards) < 9:
@@ -64,10 +102,7 @@ except ModuleNotFoundError:  # pragma: no cover - stdlib fallback when optional 
                             or clue.get('status') not in ('CRIMINAL', 'INNOCENT')):
                         yield _SchemaError(('cards', idx, 'clue'), 'Invalid FACT clue')
                 elif kind in ('SAME', 'DIFFERENT'):
-                    cells = clue.get('cells')
-                    if (set(clue) != {'id', 'kind', 'cells'} or not isinstance(cells, list)
-                            or len(cells) != 2 or len(set(cells)) != 2
-                            or not all(isinstance(x, str) and _CELL_RE.match(x) for x in cells)):
+                    if set(clue) != {'id', 'kind', 'cells'} or not _cell_list_ok(clue.get('cells'), 2):
                         yield _SchemaError(('cards', idx, 'clue'), f'Invalid {kind} clue')
                 elif kind == 'COMPOUND':
                     prems, conc = clue.get('premises'), clue.get('conclusion')
@@ -99,43 +134,9 @@ except ModuleNotFoundError:  # pragma: no cover - stdlib fallback when optional 
                         type(clue.get('k')) is not int or clue['k'] < 0
                     ):
                         yield _SchemaError(('cards', idx, 'clue', 'k'), 'Invalid k')
-                    reg = clue.get('region')
-                    if not isinstance(reg, dict) or not isinstance(reg.get('type'), str):
-                        yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid region')
-                        continue
-                    rtype = reg.get('type')
-                    if rtype == 'row':
-                        if set(reg) != {'type', 'index'} or type(reg.get('index')) is not int or reg['index'] < 1:
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid row region')
-                    elif rtype == 'column':
-                        if (set(reg) != {'type', 'index'} or not isinstance(reg.get('index'), str)
-                                or not re.match(r'^[A-Z]$', reg['index'])):
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid column region')
-                    elif rtype in ('neighbors', 'above', 'below', 'left_of', 'right_of'):
-                        if (set(reg) != {'type', 'cell'} or not isinstance(reg.get('cell'), str)
-                                or not _CELL_RE.match(reg['cell'])):
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), f'Invalid {rtype} region')
-                    elif rtype in ('between', 'common_neighbors'):
-                        rcells = reg.get('cells')
-                        if (set(reg) != {'type', 'cells'} or not isinstance(rcells, list)
-                                or len(rcells) != 2 or len(set(rcells)) != 2
-                                or not all(isinstance(x, str) and _CELL_RE.match(x) for x in rcells)):
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), f'Invalid {rtype} region')
-                    elif rtype in ('corners', 'edges'):
-                        if set(reg) != {'type'}:
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), f'Invalid {rtype} region')
-                    elif rtype == 'intersection':
-                        sub = reg.get('regions')
-                        if set(reg) != {'type', 'regions'} or not isinstance(sub, list) or len(sub) < 2:
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid intersection region')
-                    elif rtype == 'cells':
-                        rcells = reg.get('cells')
-                        if (set(reg) != {'type', 'cells'} or not isinstance(rcells, list) or not rcells
-                                or len(set(rcells)) != len(rcells)
-                                or not all(isinstance(x, str) and _CELL_RE.match(x) for x in rcells)):
-                            yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid cells region')
-                    else:
-                        yield _SchemaError(('cards', idx, 'clue', 'region'), 'Invalid region type')
+                    message = _region_error(clue.get('region'))
+                    if message:
+                        yield _SchemaError(('cards', idx, 'clue', 'region'), message)
                 else:
                     yield _SchemaError(('cards', idx, 'clue', 'kind'), 'Invalid clue kind')
 
