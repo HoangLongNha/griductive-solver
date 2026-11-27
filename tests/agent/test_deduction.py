@@ -222,7 +222,7 @@ def test_agl03_stuck_when_no_forced_verdict_and_never_guesses():
     assert game.submissions == []
     assert game.revealed == {"A1"}
     # Terminal queries are still recorded and summed into totals
-    assert trace.total_sat_calls == len(trace.terminal_queries) == 7  # 1 BASE_KB + 2*3 CLASSIFY
+    assert trace.total_sat_calls == len(trace.terminal_queries) == 4  # 1 BASE_KB + 1*3 CLASSIFY
 
 
 def test_agl04_trace_records_step_clues_queries_verdict_reveal_and_exact_totals():
@@ -249,7 +249,7 @@ def test_agl04_trace_records_step_clues_queries_verdict_reveal_and_exact_totals(
     assert step1.queries[0].is_sat is True
     b1_var = cell_to_var("B1", 2)
     b1_qs = [q for q in step1.queries if q.target_cell == "B1"]
-    assert [(q.assumptions, q.is_sat) for q in b1_qs] == [((-b1_var,), True), ((b1_var,), False)]
+    assert [(q.assumptions, q.is_sat) for q in b1_qs] == [((b1_var,), False)]
 
     # Contracts §7: aggregate totals MUST equal exact sum of per-call logs
     assert step1.stats == aggregate_queries(step1.queries)
@@ -402,11 +402,11 @@ def test_shared_13a_walkthrough_and_on_step_streaming_callback():
     assert (s1.cell, s1.verdict) == ("B1", Status.INNOCENT)
     assert s1.newly_revealed_clue_id == "c-B1"
     b1_classify_qs = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "B1" and q.purpose == QueryPurpose.CLASSIFY]
-    assert b1_classify_qs == [((-2,), True), ((2,), False)]
+    assert b1_classify_qs == [((2,), False)]
     b1_recheck_qs = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "B1" and q.purpose == QueryPurpose.VERDICT_RECHECK]
-    assert b1_recheck_qs == [((-2,), True), ((2,), False)]
+    assert b1_recheck_qs == [((2,), False)]
     c1_qs_step1 = [(q.assumptions, q.is_sat) for q in s1.queries if q.target_cell == "C1"]
-    assert c1_qs_step1 == [((-3,), True), ((3,), True)]  # C1 was still UNKNOWN before B1 revealed
+    assert len(c1_qs_step1) == 1 and c1_qs_step1[0][1] is True  # C1 was still UNKNOWN before B1 revealed
 
     # Shared 1.3a Step 2: c-B1 = SAME(B1, C1) added -> proves C1 INNOCENT
     s2 = trace.steps[1]
@@ -425,9 +425,9 @@ def test_shared_13a_walkthrough_and_on_step_streaming_callback():
 
 def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_solver_calls():
     """Contracts §7 & AGL-04: total_sat_calls must include Engine submit_verdict verification queries.
-    
-    Validates on tutorial_3x3 with counting solver: 8 steps x 3 verification queries = 24 calls,
-    plus 80 classify queries = exactly 104 calls in both trace.total_sat_calls and solver.call_count.
+
+    Validates on tutorial_3x3 with counting solver: 8 steps x 2 verification queries = 16 calls,
+    plus 44 classify queries = exactly 60 calls in both trace.total_sat_calls and solver.call_count.
     """
     puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
     real_calls = 0
@@ -445,16 +445,16 @@ def test_agl04_trace_records_engine_verdict_recheck_queries_and_matches_real_sol
     assert trace.terminal == TraceStatus.SOLVED
     assert trace.deduction_steps == 8
 
-    # Each step includes the classification queries plus the engine recheck queries (QueryPurpose.VERDICT_RECHECK)
+    # Each step includes the classification queries plus the engine recheck query (QueryPurpose.VERDICT_RECHECK)
     for step in trace.steps:
         recheck_qs = [q for q in step.queries if q.purpose == QueryPurpose.VERDICT_RECHECK]
-        assert len(recheck_qs) == 2  # (-v,) and (v,) assumptions evaluated during submit_verdict
+        assert len(recheck_qs) == 1  # single witness-guided refutation query evaluated during submit_verdict
 
-    assert trace.total_sat_calls == real_calls == 104
+    assert trace.total_sat_calls == real_calls == 60
 
 
 def test_auto_solve_without_oracle_query_log_leaves_oracle_unmutated_and_records_agent_queries():
-    """When oracle_query_log is omitted, trace records only agent classification queries (80 on 3x3),
+    """When oracle_query_log is omitted, trace records only agent classification queries (44 on 3x3),
     and auto_solve never mutates oracle.query_log."""
     puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
     real_calls = 0
@@ -470,17 +470,17 @@ def test_auto_solve_without_oracle_query_log_leaves_oracle_unmutated_and_records
     trace = auto_solve(game, encode_kb, counting_solver)
     assert trace.terminal == TraceStatus.SOLVED
     assert trace.deduction_steps == 8
-    # 80 classify queries recorded in trace
-    assert trace.total_sat_calls == 80
-    # Solver was actually called 104 times (80 classify + 24 engine recheck)
-    assert real_calls == 104
+    # 44 classify queries recorded in trace
+    assert trace.total_sat_calls == 44
+    # Solver was actually called 60 times (44 classify + 16 engine recheck)
+    assert real_calls == 60
     # Crucial invariant: oracle.query_log was NOT mutated by auto_solve
     assert oracle.query_log is None
 
 
 def test_agl04_pure_public_game_port_adapter_with_oracle_query_log():
     """Ensure pure PublicGamePort adapter without _oracle / oracle attributes
-    captures all 104 SAT calls (including 24 engine recheck queries) when passed
+    captures all 60 SAT calls (including 16 engine recheck queries) when passed
     a shared oracle_query_log channel."""
     puzzle = load_puzzle(str(ROOT / "puzzles/3x3/tutorial_3x3.json"))
     real_calls = 0
@@ -519,8 +519,8 @@ def test_agl04_pure_public_game_port_adapter_with_oracle_query_log():
     )
     assert trace.terminal == TraceStatus.SOLVED
     assert trace.deduction_steps == 8
-    assert trace.total_sat_calls == real_calls == 104
-    assert len(shared_query_log) == 24  # 8 steps x 3 verification queries (1 BASE_KB + 2 VERDICT_RECHECK)
+    assert trace.total_sat_calls == real_calls == 60
+    assert len(shared_query_log) == 16  # 8 steps x 2 verification queries (1 BASE_KB + 1 VERDICT_RECHECK)
 
 
 def test_auto_solve_handles_immutable_or_custom_oracle_without_attribute_error():

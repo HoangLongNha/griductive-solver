@@ -4,12 +4,21 @@ Entailment rules (CONTRACTS §5):
 1. Check `KB` itself for satisfiability first.
    - If `KB` is UNSAT -> every unresolved cell is `Inference.INCONSISTENT`.
 2. Otherwise, for each unresolved cell `Ci` (primary variable `v`):
-   - Test `KB ∧ (-v)` and `KB ∧ (+v)`:
-     * `(-v)` UNSAT and `(+v)` SAT   -> `Inference.CRIMINAL`   (KB |= Ci)
-     * `(+v)` UNSAT and `(-v)` SAT   -> `Inference.INNOCENT`   (KB |= ¬Ci)
-     * Both SAT                       -> `Inference.UNKNOWN`
-     * Both UNSAT (defensive fallback)-> `Inference.INCONSISTENT`
+   - Model witness reuse optimization:
+     Since `base_res.is_sat` is True, a complete satisfying assignment `M`
+     (`base_res.assignment`) already witnesses one polarity for every `v`:
+     * If `M[v] == True`, `KB ∧ (+v)` is already proved SAT -> test ONLY `KB ∧ (-v)`:
+       - UNSAT -> `Inference.CRIMINAL` (KB |= Ci)
+       - SAT   -> `Inference.UNKNOWN`
+     * If `M[v] == False`, `KB ∧ (-v)` is already proved SAT -> test ONLY `KB ∧ (+v)`:
+       - UNSAT -> `Inference.INNOCENT` (KB |= ¬Ci)
+       - SAT   -> `Inference.UNKNOWN`
+   - Fallback (if a test/mock solver returns `assignment=None`):
+     Test `KB ∧ (-v)` first and short-circuit immediately to `Inference.CRIMINAL`
+     if UNSAT; otherwise test `KB ∧ (+v)`.
 """
+from collections.abc import Mapping
+
 from griductive.models import CellId, Inference, PublicState, cell_to_var
 
 from .knowledge_base import KnowledgeBase, QueryPurpose, SATQuery, build_kb, run_sat_query
@@ -22,9 +31,36 @@ def _infer_cell_from_sat_kb(
     *,
     purpose: QueryPurpose,
     query_log: list[SATQuery] | None,
+    witness_assignment: Mapping[int, bool] | None = None,
 ) -> Inference:
     """Classify one cell assuming base `kb` has already been verified SAT."""
     var = cell_to_var(cell, kb.size)
+
+    if witness_assignment is not None and var in witness_assignment:
+        if witness_assignment[var]:
+            # KB ∧ (+var) is already witnessed SAT by base_res.assignment.
+            neg_res = run_sat_query(
+                solver,
+                kb.cnf,
+                (-var,),
+                purpose=purpose,
+                target_cell=cell,
+                query_log=query_log,
+            )
+            return Inference.CRIMINAL if not neg_res.is_sat else Inference.UNKNOWN
+
+        # KB ∧ (-var) is already witnessed SAT by base_res.assignment.
+        pos_res = run_sat_query(
+            solver,
+            kb.cnf,
+            (var,),
+            purpose=purpose,
+            target_cell=cell,
+            query_log=query_log,
+        )
+        return Inference.INNOCENT if not pos_res.is_sat else Inference.UNKNOWN
+
+    # Fallback when solver returns SAT without an assignment witness: short-circuit on UNSAT.
     neg_res = run_sat_query(
         solver,
         kb.cnf,
@@ -33,6 +69,9 @@ def _infer_cell_from_sat_kb(
         target_cell=cell,
         query_log=query_log,
     )
+    if not neg_res.is_sat:
+        return Inference.CRIMINAL
+
     pos_res = run_sat_query(
         solver,
         kb.cnf,
@@ -41,11 +80,6 @@ def _infer_cell_from_sat_kb(
         target_cell=cell,
         query_log=query_log,
     )
-
-    if not neg_res.is_sat and not pos_res.is_sat:
-        return Inference.INCONSISTENT
-    if not neg_res.is_sat:
-        return Inference.CRIMINAL
     if not pos_res.is_sat:
         return Inference.INNOCENT
     return Inference.UNKNOWN
@@ -80,6 +114,7 @@ def classify_kb(
             solver,
             purpose=purpose,
             query_log=query_log,
+            witness_assignment=base_res.assignment,
         )
         for cell in kb.unresolved_cells
     }
@@ -121,6 +156,7 @@ def classify_one(
         solver,
         purpose=purpose,
         query_log=query_log,
+        witness_assignment=base_res.assignment,
     )
 
 

@@ -11,7 +11,7 @@ from griductive.models import CNF, CellId, Clause, Clue, PublicState, cell_to_va
 from . import extensions
 from .cardinality import AuxPool, at_least, at_most, exactly
 from .regions import check_size, parse_literal, parse_status
-from .semantics import check_clue, parse_counting, parse_pair
+from .semantics import check_clue, parse_counting, parse_pair, parse_target_status
 
 
 def literal(cell: CellId, criminal: bool, size: int) -> int:
@@ -37,15 +37,20 @@ def encode_clue(clue: Clue, size: int, pool: AuxPool) -> list[Clause]:
         return [(a, b), (-a, -b)]
     if clue.kind == 'PARITY':
         cells, odd = extensions.parse_parity(clue, size)
-        return extensions.encode_parity(tuple(map(var, cells)), odd, pool)
+        target = extensions.parse_target_status(clue)
+        return extensions.encode_parity(tuple(literal(c, target, size) for c in cells), odd, pool)
+    if clue.kind == 'CONNECTED':
+        cells, target = extensions.parse_connected(clue, size)
+        return extensions.encode_connected(cells, tuple(literal(c, target, size) for c in cells), pool)
     if clue.kind == 'COMPOUND':
         premises, conclusion = extensions.parse_compound(clue, size)
         return extensions.encode_compound(
             tuple(literal(cell, value, size) for cell, value in premises),
             literal(*conclusion, size))
     cells, k = parse_counting(clue, size)
+    target = parse_target_status(clue)
     encode = {'EXACTLY': exactly, 'AT_LEAST': at_least, 'AT_MOST': at_most}[clue.kind]
-    return encode(tuple(map(var, cells)), k, pool)
+    return encode(tuple(literal(c, target, size) for c in cells), k, pool)
 
 
 def _build(size: int, units: Iterable[Clause], clues: Iterable[Clue]) -> CNF:

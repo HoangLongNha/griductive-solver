@@ -586,7 +586,7 @@ function InvestigationBoardScene({
                         card={card}
                         isSelected={selectedCell === card.cell}
                         isHighlighted={highlightedSet.has(card.cell)}
-                        isHintTarget={hintInfo?.cell === card.cell}
+                        isHintTarget={hintInfo?.stage === 2 && hintInfo?.cell === card.cell}
                         busy={busy}
                         docRef={(el) => {
                           if (el) docRefs.current[card.cell] = el;
@@ -1522,7 +1522,11 @@ function App() {
 
   const highlightedSet = useMemo(() => {
     const set = new Set();
-    if (selectedClueCard?.revealed && selectedClueCard?.clue?.highlighted_cells) {
+    if (hintInfo?.stage === 1 && hintInfo?.supporting_clue_cells?.length) {
+      hintInfo.supporting_clue_cells.forEach((cid) => set.add(cid));
+    } else if (hintInfo?.stage === 2 && hintInfo?.highlighted_cells) {
+      hintInfo.highlighted_cells.forEach((cid) => set.add(cid));
+    } else if (selectedClueCard?.revealed && selectedClueCard?.clue?.highlighted_cells) {
       selectedClueCard.clue.highlighted_cells.forEach((cid) => set.add(cid));
     } else if (hintInfo?.highlighted_cells) {
       hintInfo.highlighted_cells.forEach((cid) => set.add(cid));
@@ -1620,17 +1624,36 @@ function App() {
 
   const handleHint = async () => {
     sfx("phone");
+    // 2-stage progressive hint: Stage 1 highlights supporting clues; clicking again reveals target cell (Stage 2)
+    if (hintInfo && hintInfo.status === "FOUND" && hintInfo.stage === 1) {
+      const stage2 = { ...hintInfo, stage: 2 };
+      setHintInfo(stage2);
+      setSelectedCell(stage2.cell || stage2.relevant_clue_cell || null);
+      setDispatch({
+        type: "ACCEPTED",
+        title: "ORACLE LEAD (2/2)",
+        message: stage2.message,
+      });
+      if (viewState === "ROOM") enterBoardView();
+      return;
+    }
+
     const requestId = ++requestIdRef.current;
     setBusy(true);
     try {
       const hint = await apiFetch("/api/game/hint");
       if (requestId !== requestIdRef.current) return;
-      setHintInfo(hint);
-      setSelectedCell(hint.relevant_clue_cell || hint.cell || null);
+      const isFound = hint.status === "FOUND";
+      const stage1Msg = hint.clue_hint_message
+        ? `${hint.clue_hint_message} (Click Oracle Hint again to reveal suspect.)`
+        : hint.message;
+      const stagedHint = { ...hint, stage: isFound ? 1 : 2 };
+      setHintInfo(stagedHint);
+      setSelectedCell(hint.relevant_clue_cell || (isFound ? null : hint.cell) || null);
       setDispatch({
         type: hint.status === "INCONSISTENT" ? "CONTRADICTED" : "ACCEPTED",
-        title: hint.status === "FOUND" ? "ORACLE LEAD" : hint.status,
-        message: hint.message,
+        title: isFound ? "ORACLE LEAD (1/2)" : hint.status,
+        message: isFound ? stage1Msg : hint.message,
       });
       if (viewState === "ROOM") enterBoardView();
     } catch (err) {

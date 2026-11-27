@@ -3,23 +3,22 @@
   "id": "extensions_4x4",
   "size": 4,
   "initial_revealed": [
-    "A1"
+    "A1",
+    "B2",
+    "D4"
   ],
   "cards": [
     {
       "cell": "A1",
       "name": "Alice",
       "profession": "Detective",
-      "hidden_status": "INNOCENT",
+      "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "EXACTLY",
         "k": 2,
         "region": {
-          "type": "cells",
-          "cells": [
-            "B1",
-            "A2"
-          ]
+          "type": "row",
+          "index": 1
         },
         "id": "c-A1"
       }
@@ -28,13 +27,13 @@
       "cell": "B1",
       "name": "Bao",
       "profession": "Guard",
-      "hidden_status": "CRIMINAL",
+      "hidden_status": "INNOCENT",
       "clue": {
         "kind": "PARITY",
         "parity": "ODD",
         "region": {
-          "type": "neighbors",
-          "cell": "A1"
+          "type": "column",
+          "index": "B"
         },
         "id": "c-B1"
       }
@@ -49,16 +48,16 @@
         "premises": [
           {
             "cell": "B1",
-            "status": "CRIMINAL"
+            "status": "INNOCENT"
           },
           {
             "cell": "B2",
-            "status": "CRIMINAL"
+            "status": "INNOCENT"
           }
         ],
         "conclusion": {
-          "cell": "C2",
-          "status": "INNOCENT"
+          "cell": "A2",
+          "status": "CRIMINAL"
         },
         "id": "c-C1"
       }
@@ -70,10 +69,10 @@
       "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "EXACTLY",
-        "k": 2,
+        "k": 1,
         "region": {
-          "type": "row",
-          "index": 2
+          "type": "neighbors",
+          "cell": "A1"
         },
         "id": "c-D1"
       }
@@ -84,11 +83,12 @@
       "profession": "Clerk",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "DIFFERENT",
-        "cells": [
-          "B1",
-          "C1"
-        ],
+        "kind": "EXACTLY",
+        "k": 1,
+        "region": {
+          "type": "row",
+          "index": 2
+        },
         "id": "c-A2"
       }
     },
@@ -96,13 +96,22 @@
       "cell": "B2",
       "name": "Finn",
       "profession": "Doctor",
-      "hidden_status": "CRIMINAL",
+      "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "PARITY",
-        "parity": "EVEN",
-        "region": {
-          "type": "row",
-          "index": 1
+        "kind": "COMPOUND",
+        "premises": [
+          {
+            "cell": "A1",
+            "status": "CRIMINAL"
+          },
+          {
+            "cell": "D4",
+            "status": "CRIMINAL"
+          }
+        ],
+        "conclusion": {
+          "cell": "D1",
+          "status": "CRIMINAL"
         },
         "id": "c-B2"
       }
@@ -113,11 +122,12 @@
       "profession": "Teacher",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "SAME",
-        "cells": [
-          "A1",
-          "B3"
-        ],
+        "kind": "PARITY",
+        "parity": "EVEN",
+        "region": {
+          "type": "column",
+          "index": "C"
+        },
         "id": "c-C2"
       }
     },
@@ -127,11 +137,14 @@
       "profession": "Farmer",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 2,
+        "kind": "AT_MOST",
+        "k": 0,
         "region": {
-          "type": "column",
-          "index": "A"
+          "type": "cells",
+          "cells": [
+            "A3",
+            "C3"
+          ]
         },
         "id": "c-D2"
       }
@@ -142,11 +155,11 @@
       "profession": "Writer",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 3,
+        "kind": "PARITY",
+        "parity": "ODD",
         "region": {
-          "type": "neighbors",
-          "cell": "A3"
+          "type": "column",
+          "index": "A"
         },
         "id": "c-A3"
       }
@@ -155,22 +168,13 @@
       "cell": "B3",
       "name": "Jun",
       "profession": "Student",
-      "hidden_status": "INNOCENT",
+      "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "COMPOUND",
-        "premises": [
-          {
-            "cell": "C2",
-            "status": "INNOCENT"
-          },
-          {
-            "cell": "D2",
-            "status": "INNOCENT"
-          }
-        ],
-        "conclusion": {
-          "cell": "C3",
-          "status": "CRIMINAL"
+        "kind": "PARITY",
+        "parity": "EVEN",
+        "region": {
+          "type": "row",
+          "index": 3
         },
         "id": "c-B3"
       }
@@ -179,16 +183,13 @@
       "cell": "C3",
       "name": "Khai",
       "profession": "Pilot",
-      "hidden_status": "CRIMINAL",
+      "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "AT_LEAST",
+        "kind": "EXACTLY",
         "k": 2,
         "region": {
-          "type": "cells",
-          "cells": [
-            "D3",
-            "A4"
-          ]
+          "type": "row",
+          "index": 4
         },
         "id": "c-C3"
       }
@@ -199,12 +200,11 @@
       "profession": "Chef",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 2,
-        "region": {
-          "type": "row",
-          "index": 3
-        },
+        "kind": "DIFFERENT",
+        "cells": [
+          "B2",
+          "D3"
+        ],
         "id": "c-D3"
       }
     },
@@ -214,12 +214,9 @@
       "profession": "Nurse",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 2,
-        "region": {
-          "type": "column",
-          "index": "D"
-        },
+        "kind": "FACT",
+        "cell": "A1",
+        "status": "CRIMINAL",
         "id": "c-A4"
       }
     },
@@ -229,12 +226,9 @@
       "profession": "Designer",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "PARITY",
-        "parity": "EVEN",
-        "region": {
-          "type": "row",
-          "index": 4
-        },
+        "kind": "FACT",
+        "cell": "D4",
+        "status": "CRIMINAL",
         "id": "c-B4"
       }
     },
@@ -242,13 +236,23 @@
       "cell": "C4",
       "name": "Oanh",
       "profession": "Driver",
-      "hidden_status": "CRIMINAL",
+      "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "DIFFERENT",
-        "cells": [
-          "B4",
-          "C4"
+        "kind": "COMPOUND",
+        "premises": [
+          {
+            "cell": "A4",
+            "status": "CRIMINAL"
+          },
+          {
+            "cell": "D4",
+            "status": "CRIMINAL"
+          }
         ],
+        "conclusion": {
+          "cell": "B4",
+          "status": "INNOCENT"
+        },
         "id": "c-C4"
       }
     },
@@ -256,11 +260,14 @@
       "cell": "D4",
       "name": "Phuc",
       "profession": "Librarian",
-      "hidden_status": "INNOCENT",
+      "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "FACT",
-        "cell": "C4",
-        "status": "CRIMINAL",
+        "kind": "EXACTLY",
+        "k": 1,
+        "region": {
+          "type": "neighbors",
+          "cell": "D4"
+        },
         "id": "c-D4"
       }
     }

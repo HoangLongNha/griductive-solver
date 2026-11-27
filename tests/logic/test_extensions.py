@@ -12,7 +12,8 @@ from griductive.game.loader import load_puzzle
 from griductive.logic import (ClueValidationError, encode_clue, encode_kb, evaluate_clue,
                               validate_clue)
 from griductive.logic.cardinality import AuxPool
-from griductive.logic.extensions import encode_compound, encode_parity
+from griductive.logic.extensions import encode_compound, encode_connected, encode_parity
+from griductive.logic.semantics import referenced_cells
 from griductive.models import Clue, Inference, Status, VerdictStatus, cell_to_var, var_to_cell
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -90,6 +91,36 @@ def test_ext03_large_parity_uses_auxiliaries_and_stays_equivalent():
     clauses = encode_clue(c, 4, pool)
     assert pool.aux_count == 9  # 2^9 > 256 direct clauses -> XOR chain
     assert_clue_equivalent(c, 4, clauses, 16)
+
+
+@pytest.mark.parametrize('region', [
+    ROW1, {'type': 'cells', 'cells': ['A1', 'B1', 'A2', 'B2', 'A3', 'B3']},
+    {'type': 'cells', 'cells': ['A1', 'C1', 'A2', 'B2', 'C2']}, {'type': 'edges'}],
+    ids=['row', 'block-2x3', 'u-shape', 'ring'])
+@pytest.mark.parametrize('direct_limit', [256, 0], ids=['direct', 'reachability'])
+def test_ext03_connected_cnf_both_encodings(region, direct_limit):
+    c = clue('CONNECTED', region=region)
+    cells = tuple(sorted(referenced_cells(c, 3), key=lambda x: cell_to_var(x, 3)))
+    pool = AuxPool(9)
+    clauses = encode_connected(cells, tuple(cell_to_var(x, 3) for x in cells), pool, direct_limit)
+    assert pool.aux_count == (0 if direct_limit else len(cells) ** 2)
+    assert_clue_equivalent(c, 3, clauses, 9)
+
+
+def test_ext03_large_connected_uses_auxiliaries_and_stays_equivalent():
+    block = [f'{col}{row}' for row in (1, 2, 3) for col in 'ABC']
+    c = clue('CONNECTED', status='INNOCENT', region={'type': 'cells', 'cells': block})
+    pool = AuxPool(16)
+    clauses = encode_clue(c, 4, pool)
+    assert pool.aux_count == 9 ** 2  # 2^9 > 256 direct clauses -> reachability
+    assert_clue_equivalent(c, 4, clauses, 16)
+
+
+def test_ext03_connected_on_5x5_edges_stays_polynomial():
+    pool = AuxPool(25)
+    clauses = encode_clue(clue('CONNECTED', region={'type': 'edges'}), 5, pool)
+    assert pool.aux_count == 16 ** 2
+    assert len(clauses) == 3 * 16 + 16 * 15 // 2 + 2 * 16 * 15  # direct exclusion needed 65294
 
 
 @pytest.mark.parametrize('bad', [

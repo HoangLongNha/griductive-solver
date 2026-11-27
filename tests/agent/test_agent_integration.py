@@ -93,10 +93,10 @@ class CountingSolver:
 @pytest.mark.parametrize(
     ("puzzle_relpath", "expected_steps", "expected_sat_calls"),
     [
-        ("3x3/tutorial_3x3.json", 8, 104),
-        ("3x3/extensions_3x3.json", 8, 104),
-        ("4x4/chain_4x4_a.json", 15, 300),
-        ("4x4/chain_4x4_b.json", 15, 300),
+        ("3x3/tutorial_3x3.json", 8, 60),
+        ("3x3/extensions_3x3.json", 8, 60),
+        ("4x4/chain_4x4_a.json", 15, 165),
+        ("4x4/chain_4x4_b.json", 15, 165),
     ],
 )
 def test_agi01_full_solve_playable_puzzles_with_real_dpll(

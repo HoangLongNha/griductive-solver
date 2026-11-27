@@ -85,8 +85,8 @@ def test_real_web_path_covers_all_clues_regions_and_uniqueness():
             kinds.add(card.clue.kind)
             if 'region' in card.clue.data:
                 regions.add(card.clue.data['region']['type'])
-    assert kinds == {'FACT', 'SAME', 'DIFFERENT', 'EXACTLY', 'AT_LEAST', 'AT_MOST', 'PARITY', 'COMPOUND'}
-    assert regions == {'row', 'column', 'neighbors', 'cells'}
+    assert {'FACT', 'SAME', 'DIFFERENT', 'EXACTLY', 'AT_LEAST', 'AT_MOST', 'PARITY', 'COMPOUND'} <= kinds
+    assert {'row', 'column', 'neighbors', 'cells'} <= regions
 
 
 @pytest.mark.parametrize('puzzle_id,steps', [('ambiguous_3x3', 0), ('stuck_4x4', 3)])

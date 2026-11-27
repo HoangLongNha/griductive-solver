@@ -228,11 +228,65 @@
                         ],
                         "properties": {
                           "type": {
-                            "const": "neighbors"
+                            "enum": [
+                              "neighbors",
+                              "above",
+                              "below",
+                              "left_of",
+                              "right_of"
+                            ]
                           },
                           "cell": {
                             "type": "string",
                             "pattern": "^[A-Z][1-9][0-9]*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "between",
+                              "common_neighbors"
+                            ]
+                          },
+                          "cells": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              }
+                            ],
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "uniqueItems": true,
+                            "items": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "corners",
+                              "edges"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -258,7 +312,161 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "regions"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "intersection"
+                          },
+                          "regions": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "row"
+                                    },
+                                    "index": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "column"
+                                    },
+                                    "index": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cell"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "neighbors",
+                                        "above",
+                                        "below",
+                                        "left_of",
+                                        "right_of"
+                                      ]
+                                    },
+                                    "cell": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z][1-9][0-9]*$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "between",
+                                        "common_neighbors"
+                                      ]
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "prefixItems": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        }
+                                      ],
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "uniqueItems": true,
+                                      "items": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "corners",
+                                        "edges"
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "cells"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z][1-9][0-9]*$"
+                                      },
+                                      "uniqueItems": true,
+                                      "minItems": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
                       }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "CRIMINAL",
+                      "INNOCENT"
                     ]
                   }
                 },
@@ -328,11 +536,65 @@
                         ],
                         "properties": {
                           "type": {
-                            "const": "neighbors"
+                            "enum": [
+                              "neighbors",
+                              "above",
+                              "below",
+                              "left_of",
+                              "right_of"
+                            ]
                           },
                           "cell": {
                             "type": "string",
                             "pattern": "^[A-Z][1-9][0-9]*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "between",
+                              "common_neighbors"
+                            ]
+                          },
+                          "cells": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              }
+                            ],
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "uniqueItems": true,
+                            "items": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "corners",
+                              "edges"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -358,7 +620,161 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "regions"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "intersection"
+                          },
+                          "regions": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "row"
+                                    },
+                                    "index": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "column"
+                                    },
+                                    "index": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cell"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "neighbors",
+                                        "above",
+                                        "below",
+                                        "left_of",
+                                        "right_of"
+                                      ]
+                                    },
+                                    "cell": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z][1-9][0-9]*$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "between",
+                                        "common_neighbors"
+                                      ]
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "prefixItems": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        }
+                                      ],
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "uniqueItems": true,
+                                      "items": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "corners",
+                                        "edges"
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "cells"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z][1-9][0-9]*$"
+                                      },
+                                      "uniqueItems": true,
+                                      "minItems": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
                       }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "CRIMINAL",
+                      "INNOCENT"
                     ]
                   }
                 },
@@ -428,11 +844,65 @@
                         ],
                         "properties": {
                           "type": {
-                            "const": "neighbors"
+                            "enum": [
+                              "neighbors",
+                              "above",
+                              "below",
+                              "left_of",
+                              "right_of"
+                            ]
                           },
                           "cell": {
                             "type": "string",
                             "pattern": "^[A-Z][1-9][0-9]*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "between",
+                              "common_neighbors"
+                            ]
+                          },
+                          "cells": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              }
+                            ],
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "uniqueItems": true,
+                            "items": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "corners",
+                              "edges"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -458,7 +928,161 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "regions"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "intersection"
+                          },
+                          "regions": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "row"
+                                    },
+                                    "index": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "column"
+                                    },
+                                    "index": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cell"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "neighbors",
+                                        "above",
+                                        "below",
+                                        "left_of",
+                                        "right_of"
+                                      ]
+                                    },
+                                    "cell": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z][1-9][0-9]*$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "between",
+                                        "common_neighbors"
+                                      ]
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "prefixItems": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        }
+                                      ],
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "uniqueItems": true,
+                                      "items": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "corners",
+                                        "edges"
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "cells"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z][1-9][0-9]*$"
+                                      },
+                                      "uniqueItems": true,
+                                      "minItems": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
                       }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "CRIMINAL",
+                      "INNOCENT"
                     ]
                   }
                 },
@@ -530,11 +1154,65 @@
                         ],
                         "properties": {
                           "type": {
-                            "const": "neighbors"
+                            "enum": [
+                              "neighbors",
+                              "above",
+                              "below",
+                              "left_of",
+                              "right_of"
+                            ]
                           },
                           "cell": {
                             "type": "string",
                             "pattern": "^[A-Z][1-9][0-9]*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "between",
+                              "common_neighbors"
+                            ]
+                          },
+                          "cells": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              }
+                            ],
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "uniqueItems": true,
+                            "items": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "corners",
+                              "edges"
+                            ]
                           }
                         },
                         "additionalProperties": false
@@ -560,7 +1238,161 @@
                           }
                         },
                         "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "regions"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "intersection"
+                          },
+                          "regions": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "row"
+                                    },
+                                    "index": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "column"
+                                    },
+                                    "index": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cell"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "neighbors",
+                                        "above",
+                                        "below",
+                                        "left_of",
+                                        "right_of"
+                                      ]
+                                    },
+                                    "cell": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z][1-9][0-9]*$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "between",
+                                        "common_neighbors"
+                                      ]
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "prefixItems": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        }
+                                      ],
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "uniqueItems": true,
+                                      "items": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "corners",
+                                        "edges"
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "cells"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z][1-9][0-9]*$"
+                                      },
+                                      "uniqueItems": true,
+                                      "minItems": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
                       }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "CRIMINAL",
+                      "INNOCENT"
                     ]
                   }
                 },
@@ -626,6 +1458,309 @@
                       }
                     },
                     "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "required": [
+                  "id",
+                  "kind",
+                  "region"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "kind": {
+                    "const": "CONNECTED"
+                  },
+                  "region": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "index"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "row"
+                          },
+                          "index": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "index"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "column"
+                          },
+                          "index": {
+                            "type": "string",
+                            "pattern": "^[A-Z]$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cell"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "neighbors",
+                              "above",
+                              "below",
+                              "left_of",
+                              "right_of"
+                            ]
+                          },
+                          "cell": {
+                            "type": "string",
+                            "pattern": "^[A-Z][1-9][0-9]*$"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "between",
+                              "common_neighbors"
+                            ]
+                          },
+                          "cells": {
+                            "type": "array",
+                            "prefixItems": [
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              },
+                              {
+                                "type": "string",
+                                "pattern": "^[A-Z][1-9][0-9]*$"
+                              }
+                            ],
+                            "minItems": 2,
+                            "maxItems": 2,
+                            "uniqueItems": true,
+                            "items": false
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "corners",
+                              "edges"
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "cells"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "cells"
+                          },
+                          "cells": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "pattern": "^[A-Z][1-9][0-9]*$"
+                            },
+                            "uniqueItems": true,
+                            "minItems": 1
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "required": [
+                          "type",
+                          "regions"
+                        ],
+                        "properties": {
+                          "type": {
+                            "const": "intersection"
+                          },
+                          "regions": {
+                            "type": "array",
+                            "minItems": 2,
+                            "items": {
+                              "oneOf": [
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "row"
+                                    },
+                                    "index": {
+                                      "type": "integer",
+                                      "minimum": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "index"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "column"
+                                    },
+                                    "index": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z]$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cell"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "neighbors",
+                                        "above",
+                                        "below",
+                                        "left_of",
+                                        "right_of"
+                                      ]
+                                    },
+                                    "cell": {
+                                      "type": "string",
+                                      "pattern": "^[A-Z][1-9][0-9]*$"
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "between",
+                                        "common_neighbors"
+                                      ]
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "prefixItems": [
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        },
+                                        {
+                                          "type": "string",
+                                          "pattern": "^[A-Z][1-9][0-9]*$"
+                                        }
+                                      ],
+                                      "minItems": 2,
+                                      "maxItems": 2,
+                                      "uniqueItems": true,
+                                      "items": false
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "enum": [
+                                        "corners",
+                                        "edges"
+                                      ]
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                },
+                                {
+                                  "type": "object",
+                                  "required": [
+                                    "type",
+                                    "cells"
+                                  ],
+                                  "properties": {
+                                    "type": {
+                                      "const": "cells"
+                                    },
+                                    "cells": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "string",
+                                        "pattern": "^[A-Z][1-9][0-9]*$"
+                                      },
+                                      "uniqueItems": true,
+                                      "minItems": 1
+                                    }
+                                  },
+                                  "additionalProperties": false
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    ]
+                  },
+                  "status": {
+                    "enum": [
+                      "CRIMINAL",
+                      "INNOCENT"
+                    ]
                   }
                 },
                 "additionalProperties": false

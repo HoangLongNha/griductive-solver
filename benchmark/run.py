@@ -151,7 +151,7 @@ def _load_puzzle_with_mode(path: Path, *, diagnostic: bool = False) -> tuple[Any
 
     raw = json.loads(path.read_text(encoding="utf-8"))
     if mode == "diagnostic_game_session":
-        from jsonschema import Draft202012Validator
+        from griductive.game.loader import Draft202012Validator
 
         schema = json.loads((ROOT / "schemas" / "puzzle.schema.json").read_text(encoding="utf-8"))
         Draft202012Validator(schema).validate(raw)
