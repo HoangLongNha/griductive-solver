@@ -292,7 +292,7 @@ class FakeController:
                 clue_payload = {
                     "id": card.clue.id,
                     "kind": card.clue.kind,
-                    "text": format_clue_text(raw_clue, names),
+                    "text": format_clue_text(raw_clue, names, state.size),
                     "highlighted_cells": extract_referenced_cells(raw_clue, state.size),
                 }
             serialized_cards.append({

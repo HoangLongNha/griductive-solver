@@ -135,7 +135,7 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "Exactly 2 innocents in neighbors of Mara (A4) in Column B."
+        == "Exactly 2 of Mara's neighbors in Column B are innocents."
     )
     assert (
         format_clue_text(
@@ -146,7 +146,7 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "All innocents in cells to the right of Abel (A5) are connected."
+        == "The innocents to the right of Abel are connected."
     )
     assert (
         format_clue_text(
@@ -157,5 +157,5 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "Exactly 1 criminal in the Cooks."
+        == "There is only 1 criminal in the Cooks."
     )

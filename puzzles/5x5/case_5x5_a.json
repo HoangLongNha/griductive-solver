@@ -15,10 +15,14 @@
       "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "EXACTLY",
-        "k": 2,
+        "k": 3,
+        "status": "INNOCENT",
         "region": {
-          "type": "row",
-          "index": 1
+          "type": "between",
+          "cells": [
+            "A1",
+            "E1"
+          ]
         },
         "id": "c-A1"
       }
@@ -31,9 +35,10 @@
       "clue": {
         "kind": "EXACTLY",
         "k": 2,
+        "status": "INNOCENT",
         "region": {
-          "type": "row",
-          "index": 2
+          "type": "right_of",
+          "cell": "C2"
         },
         "id": "c-B1"
       }
@@ -44,11 +49,13 @@
       "profession": "Artist",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "DIFFERENT",
-        "cells": [
-          "B1",
-          "C2"
-        ],
+        "kind": "EXACTLY",
+        "k": 2,
+        "status": "INNOCENT",
+        "region": {
+          "type": "above",
+          "cell": "B3"
+        },
         "id": "c-C1"
       }
     },
@@ -58,11 +65,13 @@
       "profession": "Engineer",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "SAME",
-        "cells": [
-          "B2",
-          "E2"
-        ],
+        "kind": "EXACTLY",
+        "k": 1,
+        "status": "INNOCENT",
+        "region": {
+          "type": "left_of",
+          "cell": "C2"
+        },
         "id": "c-D1"
       }
     },
@@ -72,13 +81,13 @@
       "profession": "Clerk",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "AT_MOST",
-        "k": 0,
+        "kind": "EXACTLY",
+        "k": 1,
         "region": {
-          "type": "cells",
+          "type": "common_neighbors",
           "cells": [
-            "B2",
-            "D2"
+            "B1",
+            "D1"
           ]
         },
         "id": "c-E1"
@@ -126,8 +135,8 @@
         "kind": "EXACTLY",
         "k": 1,
         "region": {
-          "type": "column",
-          "index": "B"
+          "type": "neighbors",
+          "cell": "A1"
         },
         "id": "c-C2"
       }
@@ -154,10 +163,11 @@
       "hidden_status": "INNOCENT",
       "clue": {
         "kind": "EXACTLY",
-        "k": 1,
+        "k": 2,
+        "status": "INNOCENT",
         "region": {
-          "type": "column",
-          "index": "D"
+          "type": "below",
+          "cell": "A2"
         },
         "id": "c-E2"
       }
@@ -184,10 +194,10 @@
       "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "EXACTLY",
-        "k": 0,
+        "k": 1,
         "region": {
-          "type": "neighbors",
-          "cell": "A5"
+          "type": "column",
+          "index": "B"
         },
         "id": "c-B3"
       }
@@ -213,9 +223,12 @@
       "profession": "Designer",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "FACT",
-        "cell": "A1",
-        "status": "CRIMINAL",
+        "kind": "EXACTLY",
+        "k": 1,
+        "region": {
+          "type": "column",
+          "index": "D"
+        },
         "id": "c-D3"
       }
     },
@@ -225,8 +238,8 @@
       "profession": "Driver",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 3,
+        "kind": "CONNECTED",
+        "status": "INNOCENT",
         "region": {
           "type": "column",
           "index": "E"
@@ -254,18 +267,6 @@
       "profession": "Mechanic",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "FACT",
-        "cell": "E1",
-        "status": "CRIMINAL",
-        "id": "c-B4"
-      }
-    },
-    {
-      "cell": "C4",
-      "name": "Ria",
-      "profession": "Journalist",
-      "hidden_status": "INNOCENT",
-      "clue": {
         "kind": "COMPOUND",
         "premises": [
           {
@@ -281,6 +282,20 @@
           "cell": "A4",
           "status": "INNOCENT"
         },
+        "id": "c-B4"
+      }
+    },
+    {
+      "cell": "C4",
+      "name": "Ria",
+      "profession": "Journalist",
+      "hidden_status": "INNOCENT",
+      "clue": {
+        "kind": "EXACTLY",
+        "k": 4,
+        "region": {
+          "type": "corners"
+        },
         "id": "c-C4"
       }
     },
@@ -291,8 +306,8 @@
       "hidden_status": "INNOCENT",
       "clue": {
         "kind": "FACT",
-        "cell": "C3",
-        "status": "INNOCENT",
+        "cell": "A1",
+        "status": "CRIMINAL",
         "id": "c-D4"
       }
     },
@@ -302,13 +317,12 @@
       "profession": "Musician",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "AT_LEAST",
-        "k": 4,
+        "kind": "EXACTLY",
+        "k": 3,
+        "status": "INNOCENT",
         "region": {
-          "type": "cells",
+          "type": "between",
           "cells": [
-            "A1",
-            "E1",
             "A5",
             "E5"
           ]

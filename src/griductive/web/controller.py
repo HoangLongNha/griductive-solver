@@ -74,7 +74,7 @@ class WebController:
             clue = card.clue if card.revealed else None
             shown_clue = None if clue is None else {
                 'id': clue.id, 'kind': clue.kind,
-                'text': format_clue_text({**clue.data, 'kind': clue.kind}, names),
+                'text': format_clue_text({**clue.data, 'kind': clue.kind}, names, state.size),
                 'highlighted_cells': referenced_cells(clue, state.size),
             }
             cards.append({
