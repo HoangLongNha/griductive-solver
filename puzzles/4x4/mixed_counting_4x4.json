@@ -16,9 +16,13 @@
       "clue": {
         "kind": "EXACTLY",
         "k": 2,
+        "status": "INNOCENT",
         "region": {
-          "type": "row",
-          "index": 1
+          "type": "between",
+          "cells": [
+            "A1",
+            "D1"
+          ]
         },
         "id": "c-A1"
       }
@@ -29,11 +33,15 @@
       "profession": "Guard",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "DIFFERENT",
-        "cells": [
-          "B1",
-          "C2"
-        ],
+        "kind": "EXACTLY",
+        "k": 1,
+        "region": {
+          "type": "common_neighbors",
+          "cells": [
+            "A1",
+            "C1"
+          ]
+        },
         "id": "c-B1"
       }
     },
@@ -43,11 +51,12 @@
       "profession": "Artist",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "SAME",
-        "cells": [
-          "C1",
-          "B4"
-        ],
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "row",
+          "index": 2
+        },
         "id": "c-C1"
       }
     },
@@ -57,11 +66,10 @@
       "profession": "Engineer",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 1,
+        "kind": "CONNECTED",
         "region": {
-          "type": "column",
-          "index": "B"
+          "type": "row",
+          "index": 2
         },
         "id": "c-D1"
       }
@@ -72,13 +80,13 @@
       "profession": "Clerk",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 2,
+        "id": "c-A2",
+        "kind": "AT_MOST",
+        "k": 4,
         "region": {
-          "type": "column",
-          "index": "D"
-        },
-        "id": "c-A2"
+          "type": "neighbors",
+          "cell": "C2"
+        }
       }
     },
     {
@@ -88,15 +96,11 @@
       "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "EXACTLY",
-        "k": 3,
+        "k": 2,
+        "status": "INNOCENT",
         "region": {
-          "type": "cells",
-          "cells": [
-            "A1",
-            "D1",
-            "A4",
-            "D4"
-          ]
+          "type": "above",
+          "cell": "A4"
         },
         "id": "c-B2"
       }
@@ -107,11 +111,11 @@
       "profession": "Teacher",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "AT_MOST",
-        "k": 1,
+        "kind": "CONNECTED",
+        "status": "INNOCENT",
         "region": {
-          "type": "neighbors",
-          "cell": "D1"
+          "type": "column",
+          "index": "C"
         },
         "id": "c-C2"
       }
@@ -122,11 +126,12 @@
       "profession": "Farmer",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "AT_LEAST",
-        "k": 3,
+        "kind": "EXACTLY",
+        "k": 2,
+        "status": "INNOCENT",
         "region": {
-          "type": "column",
-          "index": "A"
+          "type": "below",
+          "cell": "D1"
         },
         "id": "c-D2"
       }
@@ -135,15 +140,24 @@
       "cell": "A3",
       "name": "Ivy",
       "profession": "Writer",
-      "hidden_status": "CRIMINAL",
+      "hidden_status": "INNOCENT",
       "clue": {
+        "id": "c-A3",
         "kind": "EXACTLY",
-        "k": 2,
+        "k": 1,
         "region": {
-          "type": "row",
-          "index": 3
-        },
-        "id": "c-A3"
+          "type": "intersection",
+          "regions": [
+            {
+              "type": "neighbors",
+              "cell": "C3"
+            },
+            {
+              "type": "row",
+              "index": 4
+            }
+          ]
+        }
       }
     },
     {
@@ -152,14 +166,11 @@
       "profession": "Student",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "AT_LEAST",
-        "k": 2,
+        "kind": "EXACTLY",
+        "k": 1,
         "region": {
-          "type": "cells",
-          "cells": [
-            "A1",
-            "D1"
-          ]
+          "type": "column",
+          "index": "B"
         },
         "id": "c-B3"
       }
@@ -168,12 +179,12 @@
       "cell": "C3",
       "name": "Khai",
       "profession": "Pilot",
-      "hidden_status": "INNOCENT",
+      "hidden_status": "CRIMINAL",
       "clue": {
         "kind": "DIFFERENT",
         "cells": [
-          "C3",
-          "C4"
+          "C2",
+          "D4"
         ],
         "id": "c-C3"
       }
@@ -184,13 +195,12 @@
       "profession": "Chef",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "EXACTLY",
-        "k": 2,
-        "region": {
-          "type": "column",
-          "index": "C"
-        },
-        "id": "c-D3"
+        "id": "c-D3",
+        "kind": "SAME",
+        "cells": [
+          "A4",
+          "C4"
+        ]
       }
     },
     {
@@ -215,10 +225,9 @@
       "hidden_status": "INNOCENT",
       "clue": {
         "kind": "EXACTLY",
-        "k": 2,
+        "k": 3,
         "region": {
-          "type": "row",
-          "index": 2
+          "type": "corners"
         },
         "id": "c-B4"
       }
@@ -229,12 +238,17 @@
       "profession": "Driver",
       "hidden_status": "CRIMINAL",
       "clue": {
-        "kind": "SAME",
-        "cells": [
-          "A1",
-          "D1"
-        ],
-        "id": "c-C4"
+        "id": "c-C4",
+        "kind": "AT_LEAST",
+        "k": 1,
+        "status": "INNOCENT",
+        "region": {
+          "type": "cells",
+          "cells": [
+            "C4",
+            "D4"
+          ]
+        }
       }
     },
     {
@@ -243,9 +257,12 @@
       "profession": "Librarian",
       "hidden_status": "INNOCENT",
       "clue": {
-        "kind": "FACT",
-        "cell": "B3",
-        "status": "INNOCENT",
+        "kind": "EXACTLY",
+        "k": 2,
+        "region": {
+          "type": "row",
+          "index": 3
+        },
         "id": "c-D4"
       }
     }

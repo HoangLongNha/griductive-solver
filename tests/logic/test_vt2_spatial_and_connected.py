@@ -135,7 +135,7 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "Exactly 2 innocents in neighbors of Mara (A4) in Column B."
+        == "Exactly 2 of Mara's neighbors in Column B are innocents."
     )
     assert (
         format_clue_text(
@@ -146,7 +146,7 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "All innocents in cells to the right of Abel (A5) are connected."
+        == "The innocents to the right of Abel are connected."
     )
     assert (
         format_clue_text(
@@ -157,5 +157,94 @@ def test_clue_formatter_renders_natural_spatial_and_innocent_text() -> None:
             },
             names,
         )
-        == "Exactly 1 criminal in the Cooks."
+        == "There is only 1 criminal in the Cooks."
+    )
+
+
+def test_clue_formatter_handles_at_least_and_at_most_boundaries() -> None:
+    names = {"A1": "Alice", "B1": "Bao"}
+    pair_reg = {"type": "cells", "cells": ["A1", "B1"]}
+
+    # AT_LEAST boundaries on a 2-person pair (k=0 must NOT say "Both...", k=n says "Both...")
+    assert (
+        format_clue_text({"kind": "AT_LEAST", "k": 0, "region": pair_reg}, names, size=3)
+        == "At least 0 of Alice and Bao are criminals."
+    )
+    assert (
+        format_clue_text({"kind": "AT_LEAST", "k": 1, "region": pair_reg}, names, size=3)
+        == "At least 1 of Alice and Bao is criminal."
+    )
+    assert (
+        format_clue_text({"kind": "AT_LEAST", "k": 2, "region": pair_reg}, names, size=3)
+        == "Both Alice and Bao are criminals."
+    )
+
+    # AT_MOST boundaries on a 2-person pair (k=0 says "Neither...", k=1 says "Not both...", k=n=2 must NOT say "Not both...")
+    assert (
+        format_clue_text({"kind": "AT_MOST", "k": 0, "region": pair_reg}, names, size=3)
+        == "Neither Alice nor Bao is criminal."
+    )
+    assert (
+        format_clue_text({"kind": "AT_MOST", "k": 1, "region": pair_reg}, names, size=3)
+        == "Not both of Alice and Bao are criminals."
+    )
+    assert (
+        format_clue_text({"kind": "AT_MOST", "k": 2, "region": pair_reg}, names, size=3)
+        == "At most 2 of Alice and Bao are criminals."
+    )
+
+    # Row boundaries k=0 and k=n
+    row_reg = {"type": "row", "index": 1}
+    assert (
+        format_clue_text({"kind": "AT_LEAST", "k": 0, "region": row_reg}, names, size=3)
+        == "There are at least 0 criminals in Row 1."
+    )
+    assert (
+        format_clue_text({"kind": "AT_LEAST", "k": 3, "region": row_reg}, names, size=3)
+        == "Everyone in Row 1 is criminal."
+    )
+    assert (
+        format_clue_text({"kind": "AT_MOST", "k": 0, "region": row_reg}, names, size=3)
+        == "No one in Row 1 is criminal."
+    )
+
+    # Natural spatial intersection phrasing (prep + neighbors, neighbors + neighbors)
+    names2 = {"A3": "Iris", "B4": "Nina", "A2": "Emma", "B1": "Brian"}
+    assert (
+        format_clue_text(
+            {
+                "kind": "EXACTLY",
+                "k": 2,
+                "status": "INNOCENT",
+                "region": {
+                    "type": "intersection",
+                    "regions": [
+                        {"type": "right_of", "cell": "A3"},
+                        {"type": "neighbors", "cell": "B4"},
+                    ],
+                },
+            },
+            names2,
+            size=4,
+        )
+        == "2 innocents to the right of Iris are neighboring Nina."
+    )
+    assert (
+        format_clue_text(
+            {
+                "kind": "EXACTLY",
+                "k": 1,
+                "status": "INNOCENT",
+                "region": {
+                    "type": "intersection",
+                    "regions": [
+                        {"type": "neighbors", "cell": "A2"},
+                        {"type": "neighbors", "cell": "B1"},
+                    ],
+                },
+            },
+            names2,
+            size=4,
+        )
+        == "Only 1 common neighbor of Emma and Brian is innocent."
     )

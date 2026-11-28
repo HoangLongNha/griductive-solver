@@ -198,8 +198,8 @@ def test_dataset_coverage_matrix() -> None:
     assert counts_by_size[4] >= 2
     assert counts_by_size[5] >= 1
     assert len(NEGATIVE_FILES) >= 3
-    assert seen_kinds == REQUIRED_CLUE_KINDS
-    assert seen_regions == REQUIRED_REGION_TYPES
+    assert REQUIRED_CLUE_KINDS <= seen_kinds
+    assert REQUIRED_REGION_TYPES <= seen_regions
     assert {"EXACTLY", "AT_LEAST", "AT_MOST", "PARITY", "COMPOUND"} <= four_by_four_non_fact
     assert REQUIRED_REGION_TYPES <= four_by_four_regions
 

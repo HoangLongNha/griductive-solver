@@ -11,7 +11,7 @@ from griductive.game.engine import PuzzleValidationError, load_puzzle
 from griductive.logic import referenced_cells
 from griductive.models import PublicState, Status, SubmitResult
 
-from .clue_formatter import format_clue_text
+from .clue_formatter import extract_anchor_cells, format_clue_text
 
 
 class WebController:
@@ -74,8 +74,9 @@ class WebController:
             clue = card.clue if card.revealed else None
             shown_clue = None if clue is None else {
                 'id': clue.id, 'kind': clue.kind,
-                'text': format_clue_text({**clue.data, 'kind': clue.kind}, names),
+                'text': format_clue_text({**clue.data, 'kind': clue.kind}, names, state.size),
                 'highlighted_cells': referenced_cells(clue, state.size),
+                'anchor_cells': extract_anchor_cells(clue.data),
             }
             cards.append({
                 'cell': card.cell, 'name': card.name, 'profession': card.profession,

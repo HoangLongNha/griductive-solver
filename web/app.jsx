@@ -5,6 +5,37 @@ const ASSETS = window.GRIDUCTIVE_ASSETS || { ui: {}, characters: [], environment
 // Synthesised sound effects (web/sound.js); silently does nothing if unavailable or muted.
 const sfx = (name, delaySec = 0) => window.GriductiveSound?.play(name, delaySec);
 
+const CASE_TITLES = {
+  tutorial_3x3: "Tutorial",
+  neighbors_cells_3x3: "Neighborhood Watch",
+  extensions_3x3: "Cross-Examination",
+  chain_4x4_a: "Chain of Evidence I",
+  chain_4x4_b: "Chain of Evidence II",
+  extensions_4x4: "Tangled Alibis",
+  mixed_counting_4x4: "Mixed Signals",
+  case_5x5_a: "The Precinct Conspiracy",
+  ambiguous_3x3: "Ambiguous File",
+  stuck_4x4: "Cold Case",
+};
+
+function formatCaseTitle(id) {
+  if (!id) return "Untitled Case";
+  if (CASE_TITLES[id]) return CASE_TITLES[id];
+  return String(id)
+    .replace(/_(\d+x\d+)$/i, "")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b\w/g, (ch) => ch.toUpperCase());
+}
+
+function cleanClueTextIds(text) {
+  if (!text) return text;
+  return String(text).replace(/\s*\((?:c-[A-Z]\d+(?:,\s*)?)+\)/g, "");
+}
+
+function formatActiveClueCells(list) {
+  return (list || []).map((id) => String(id).replace(/^c-/i, "")).join(", ");
+}
+
 function getInitials(name) {
   return (name || "?")
     .split(/\s+/)
@@ -56,7 +87,15 @@ function getDispatchThumb(dispatch) {
 /* ============================================================
    EVIDENCE CONNECTIONS (SVG STRINGS FROM REAL CLUE TARGETS)
    ============================================================ */
-function EvidenceConnections({ containerRef, docRefs, cards, selectedCell, visible }) {
+function EvidenceConnections({
+  containerRef,
+  docRefs,
+  cards,
+  selectedCell,
+  highlightedSet,
+  hintInfo,
+  visible,
+}) {
   const [paths, setPaths] = useState([]);
   const [svgSize, setSvgSize] = useState({ w: "100%", h: "100%" });
 
@@ -114,6 +153,10 @@ function EvidenceConnections({ containerRef, docRefs, cards, selectedCell, visib
 
       next.push({
         ...edge,
+        x1,
+        y1,
+        x2,
+        y2,
         d: `M ${x1.toFixed(1)} ${y1.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${x2.toFixed(1)} ${y2.toFixed(1)}`,
       });
     }
@@ -137,6 +180,15 @@ function EvidenceConnections({ containerRef, docRefs, cards, selectedCell, visib
     };
   }, [recompute, containerRef, visible]);
 
+  const selectedCard = useMemo(
+    () => (cards || []).find((c) => c.cell === selectedCell) || null,
+    [cards, selectedCell]
+  );
+  const selectedIsRevealed = Boolean(selectedCard?.revealed && selectedCard?.clue);
+
+  const isHintStage1 = hintInfo?.stage === 1;
+  const isHintStage2 = hintInfo?.stage === 2;
+
   return (
     <svg
       className="evidence-strings-svg"
@@ -144,20 +196,118 @@ function EvidenceConnections({ containerRef, docRefs, cards, selectedCell, visib
       aria-hidden="true"
     >
       {paths.map((edge) => {
-        const isActive =
-          selectedCell && (edge.from === selectedCell || edge.to === selectedCell);
-        const isDimmed = selectedCell && !isActive;
+        const isOutgoing =
+          !isHintStage1 &&
+          !isHintStage2 &&
+          selectedCell &&
+          selectedIsRevealed &&
+          edge.from === selectedCell &&
+          (!highlightedSet || highlightedSet.has(edge.to));
+        const isIncoming =
+          selectedCell &&
+          ((isHintStage2 &&
+            edge.to === selectedCell &&
+            (!highlightedSet || highlightedSet.has(edge.from))) ||
+            (!isHintStage1 &&
+              !isHintStage2 &&
+              !selectedIsRevealed &&
+              edge.to === selectedCell));
+        const isActive = isOutgoing || isIncoming;
+        const isDimmed = (selectedCell || isHintStage1 || isHintStage2) && !isActive;
         const cls = [
           "evidence-string",
-          isActive ? "active" : "",
+          isOutgoing ? "active" : "",
+          isIncoming ? "active-ref" : "",
           isDimmed ? "dimmed" : "",
         ]
           .filter(Boolean)
           .join(" ");
-        return <path key={edge.id} d={edge.d} className={cls} />;
+        const pinCls = isIncoming ? "evidence-pin-node ref" : "evidence-pin-node";
+        return (
+          <g key={edge.id}>
+            <path d={edge.d} className={cls} pathLength="1" />
+            {isActive && edge.x1 != null && (
+              <>
+                <circle className={pinCls} cx={edge.x1} cy={edge.y1} r="4.2" />
+                <circle className={`${pinCls} target`} cx={edge.x2} cy={edge.y2} r="4.8" />
+              </>
+            )}
+          </g>
+        );
       })}
     </svg>
   );
+}
+
+/* ============================================================
+   RICH CLUE TEXT & PENCIL MARK HELPERS
+   ============================================================ */
+const PENCIL_CYCLE = [null, "CRIMINAL", "INNOCENT", "WATCH"];
+const PENCIL_LABELS = {
+  CRIMINAL: "? CRIM",
+  INNOCENT: "? INNO",
+  WATCH: "? 50/50",
+};
+
+function renderRichClueText(text, cardNames = []) {
+  if (!text) return null;
+  const escapedNames = (cardNames || [])
+    .filter(Boolean)
+    .map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .sort((a, b) => b.length - a.length);
+  const nameAlt = escapedNames.length ? `|${escapedNames.join("|")}` : "";
+  const re = new RegExp(
+    `\\b(criminals?|innocents?|connected|Row\\s+\\d+|Column\\s+[A-Z]|four\\s+corners|outer\\s+edges|to\\s+the\\s+(?:right|left)\\s+of|common\\s+neighbors?|neighboring|neighbors?|above|below|between${nameAlt})\\b`,
+    "gi"
+  );
+  const nameSet = new Set((cardNames || []).map((n) => String(n).toLowerCase()));
+  const parts = String(text).split(re);
+  return parts.map((part, idx) => {
+    const low = part.toLowerCase();
+    if (low === "criminal" || low === "criminals") {
+      return (
+        <span key={idx} className="clue-kw-criminal">
+          {part}
+        </span>
+      );
+    }
+    if (low === "innocent" || low === "innocents") {
+      return (
+        <span key={idx} className="clue-kw-innocent">
+          {part}
+        </span>
+      );
+    }
+    if (nameSet.has(low)) {
+      return (
+        <span key={idx} className="clue-kw-person">
+          {part}
+        </span>
+      );
+    }
+    if (
+      low === "connected" ||
+      low.startsWith("row ") ||
+      low.startsWith("column ") ||
+      low === "four corners" ||
+      low === "outer edges" ||
+      low.startsWith("to the ") ||
+      low.startsWith("common neighbor") ||
+      low === "neighboring" ||
+      low === "neighbor" ||
+      low === "neighbors" ||
+      low === "above" ||
+      low === "below" ||
+      low === "between"
+    ) {
+      return (
+        <span key={idx} className="clue-kw-region">
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
 }
 
 /* ============================================================
@@ -165,30 +315,52 @@ function EvidenceConnections({ containerRef, docRefs, cards, selectedCell, visib
    ============================================================ */
 function CharacterDocument({
   card,
+  cardNames,
   isSelected,
   isHighlighted,
+  isAnchor,
+  highlightMode,
   isHintTarget,
-  busy,
+  isDimmed,
+  pencilNote,
+  onCyclePencilNote,
   docRef,
   onSelectDocument,
-  onSubmitVerdict,
 }) {
   const portraitSrc = card.revealed ? getCharacterAsset(card) : null;
   const classes = [
     "evidence-doc",
     card.revealed ? "revealed" : "sealed",
+    !card.revealed && pencilNote ? `pencil-${pencilNote.toLowerCase()}` : "",
     isSelected ? "selected" : "",
-    isHighlighted ? "clue-target" : "",
+    isHighlighted ? (highlightMode === "reference" ? "clue-ref" : "clue-target") : "",
+    !isHighlighted && isAnchor ? "clue-anchor" : "",
     isHintTarget ? "hint-target" : "",
+    isDimmed ? "dimmed-out" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const slotClasses = [
+    "doc-slot",
+    isSelected ? "slot-selected" : "",
+    !isSelected && (isHighlighted || isAnchor || isHintTarget) ? "slot-related" : "",
+    isDimmed ? "slot-dimmed" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
   return (
-    <div className="doc-slot" ref={docRef}>
+    <div className={slotClasses} ref={docRef}>
       <div
         className={classes}
         onClick={() => onSelectDocument(card.cell)}
+        onContextMenu={(e) => {
+          if (!card.revealed && onCyclePencilNote) {
+            e.preventDefault();
+            e.stopPropagation();
+            onCyclePencilNote(card.cell);
+          }
+        }}
         role="button"
         tabIndex={0}
         aria-label={`${card.cell} ${card.name} (${card.profession})`}
@@ -202,7 +374,7 @@ function CharacterDocument({
       >
         <img className="doc-pin" src={ASSETS.ui?.pinBrass?.path} alt="" />
 
-        <div>
+        <div className="doc-top-group">
           <div className="doc-meta-strip">
             <span className="doc-coord">{card.cell}</span>
             {card.revealed ? (
@@ -214,7 +386,19 @@ function CharacterDocument({
                 {card.known_status}
               </span>
             ) : (
-              <span className="doc-stamp sealed">SEALED</span>
+              <button
+                type="button"
+                className={`doc-stamp sealed doc-pencil-toggle ${
+                  pencilNote ? `note-${pencilNote.toLowerCase()}` : ""
+                }`}
+                title="Click or Right-click card to toggle detective's pencil note (? CRIM / ? INNO / ? 50/50)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onCyclePencilNote) onCyclePencilNote(card.cell);
+                }}
+              >
+                {pencilNote ? PENCIL_LABELS[pencilNote] : "SEALED ✎"}
+              </button>
             )}
           </div>
 
@@ -228,51 +412,28 @@ function CharacterDocument({
             ) : (
               <div className="doc-sealed-cover">
                 <span className="doc-sealed-mark">
-                  {card.revealed ? getInitials(card.name) : "?"}
+                  {card.revealed
+                    ? getInitials(card.name)
+                    : pencilNote === "CRIMINAL"
+                    ? "?✕"
+                    : pencilNote === "INNOCENT"
+                    ? "?✓"
+                    : pencilNote === "WATCH"
+                    ? "50/50"
+                    : "?"}
                 </span>
               </div>
             )}
           </div>
 
-          <div className="doc-hand-name">{card.name}</div>
-          <div className="doc-prof">
-            {card.profession} · <span>#{card.cell}</span>
-          </div>
-          <div className="doc-ink-rule" aria-hidden="true">
-            <span className="doc-ink-glyph">
-              {card.revealed ? (card.known_status === "CRIMINAL" ? "✕" : "✓") : "§"}
-            </span>
-            <span className="doc-ink-stroke" />
+          <div className="doc-title-row">
+            <div className="doc-hand-name">{card.name}</div>
+            <div className="doc-prof">{card.profession}</div>
           </div>
         </div>
 
-        {card.revealed && card.clue ? (
-          <div className="doc-clue-note">{card.clue.text}</div>
-        ) : (
-          <div className="doc-actions">
-            <button
-              type="button"
-              className="doc-stamp-btn criminal"
-              disabled={busy}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSubmitVerdict(card.cell, "CRIMINAL");
-              }}
-            >
-              CRIMINAL
-            </button>
-            <button
-              type="button"
-              className="doc-stamp-btn innocent"
-              disabled={busy}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSubmitVerdict(card.cell, "INNOCENT");
-              }}
-            >
-              INNOCENT
-            </button>
-          </div>
+        {card.revealed && card.clue && (
+          <div className="doc-clue-note">{renderRichClueText(card.clue.text, cardNames)}</div>
         )}
       </div>
     </div>
@@ -285,6 +446,8 @@ function CharacterDocument({
 function CharacterDossier({
   card,
   allCards,
+  pencilNote,
+  onSetPencilNote,
   busy,
   onClose,
   onSelectCell,
@@ -301,6 +464,8 @@ function CharacterDossier({
         c.cell !== card.cell
     );
   }, [allCards, card?.cell]);
+
+  const cardNames = useMemo(() => (allCards || []).map((c) => c.name), [allCards]);
 
   if (!card) return null;
   const portraitSrc = card.revealed ? getCharacterAsset(card) : null;
@@ -355,7 +520,7 @@ function CharacterDossier({
         <h3>Statement & Evidence</h3>
         {card.revealed && card.clue ? (
           <>
-            <p style={{ margin: 0, fontSize: "0.8rem" }}>{card.clue.text}</p>
+            <p style={{ margin: 0, fontSize: "0.8rem" }}>{renderRichClueText(card.clue.text, cardNames)}</p>
             {card.clue.highlighted_cells?.length > 0 && (
               <div className="target-chip-row">
                 {card.clue.highlighted_cells.map((cid) => (
@@ -395,6 +560,51 @@ function CharacterDossier({
                 STAMP INNOCENT
               </button>
             </div>
+            {onSetPencilNote && (
+              <div className="dossier-pencil-box">
+                <div className="dossier-pencil-title">
+                  Detective's Pencil Note (Draft — Right-click card or toggle below)
+                </div>
+                <div className="dossier-pencil-btns">
+                  <button
+                    type="button"
+                    className={`pencil-chip crim ${pencilNote === "CRIMINAL" ? "active" : ""}`}
+                    onClick={() =>
+                      onSetPencilNote(card.cell, pencilNote === "CRIMINAL" ? null : "CRIMINAL")
+                    }
+                  >
+                    ? Criminal
+                  </button>
+                  <button
+                    type="button"
+                    className={`pencil-chip inno ${pencilNote === "INNOCENT" ? "active" : ""}`}
+                    onClick={() =>
+                      onSetPencilNote(card.cell, pencilNote === "INNOCENT" ? null : "INNOCENT")
+                    }
+                  >
+                    ? Innocent
+                  </button>
+                  <button
+                    type="button"
+                    className={`pencil-chip watch ${pencilNote === "WATCH" ? "active" : ""}`}
+                    onClick={() =>
+                      onSetPencilNote(card.cell, pencilNote === "WATCH" ? null : "WATCH")
+                    }
+                  >
+                    ? 50/50
+                  </button>
+                  {pencilNote && (
+                    <button
+                      type="button"
+                      className="pencil-chip clear"
+                      onClick={() => onSetPencilNote(card.cell, null)}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -414,7 +624,7 @@ function CharacterDossier({
               <strong>
                 {ref.name} ({ref.cell}):
               </strong>{" "}
-              {ref.clue.text}
+              {renderRichClueText(ref.clue.text, cardNames)}
             </div>
           ))
         ) : (
@@ -424,6 +634,99 @@ function CharacterDossier({
         )}
       </div>
     </aside>
+  );
+}
+
+/* ============================================================
+   CASE SOLVED OVERLAY (NOIR CASE CLOSED DOSSIER)
+   ============================================================ */
+function CaseSolvedModal({
+  gameState,
+  nextPuzzle,
+  onNextCase,
+  onReviewBoard,
+  onOpenLedger,
+  onReplay,
+}) {
+  if (!gameState) return null;
+  const cards = gameState.cards || [];
+  const criminalCount = cards.filter((c) => c.known_status === "CRIMINAL").length;
+  const innocentCount = cards.filter((c) => c.known_status === "INNOCENT").length;
+  const stepsCount = gameState.trace?.length || 0;
+
+  return (
+    <div
+      className="case-solved-backdrop"
+      onClick={onReviewBoard}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Case Solved"
+    >
+      <div className="case-solved-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="case-solved-top">
+          <div className="case-solved-meta">
+            <span className="case-solved-kicker">
+              CASE FILE // {formatCaseTitle(gameState.puzzle_id)}
+            </span>
+            <span className="case-solved-grid-tag">
+              {gameState.size}×{gameState.size} GRID
+            </span>
+          </div>
+          <div className="case-closed-stamp" aria-label="Case Closed">
+            CASE CLOSED
+          </div>
+        </div>
+
+        <h2 className="case-solved-title">Investigation Complete</h2>
+        <p className="case-solved-subtitle">
+          Every suspect in this file has been unsealed and verified by logical entailment.
+        </p>
+
+        <div className="case-solved-stats">
+          <div className="case-stat-card">
+            <span className="case-stat-label">Suspects Cleared</span>
+            <strong className="case-stat-value">
+              {gameState.revealed_count}/{gameState.total_count}
+            </strong>
+          </div>
+          <div className="case-stat-card">
+            <span className="case-stat-label">Final Verdicts</span>
+            <strong className="case-stat-value">
+              <span className="stat-crim">{criminalCount} Criminal</span>
+              {" · "}
+              <span className="stat-inno">{innocentCount} Innocent</span>
+            </strong>
+          </div>
+          <div className="case-stat-card">
+            <span className="case-stat-label">Deduction Steps</span>
+            <strong className="case-stat-value">{stepsCount}</strong>
+          </div>
+        </div>
+
+        <div className="case-solved-actions">
+          <div className="case-solved-actions-left">
+            <button type="button" className="paper-tab" onClick={onReplay}>
+              Replay
+            </button>
+            <button type="button" className="paper-tab" onClick={onOpenLedger}>
+              Ledger ({stepsCount})
+            </button>
+            <button type="button" className="paper-tab" onClick={onReviewBoard}>
+              Review Board
+            </button>
+          </div>
+          {nextPuzzle && (
+            <button
+              type="button"
+              className="paper-tab case-solved-next-btn"
+              onClick={() => onNextCase(nextPuzzle.id)}
+            >
+              Next Case →
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -441,30 +744,56 @@ function InvestigationBoardScene({
   onStep,
   onAutoSolve,
   onOpenLedger,
+  onOpenSolved,
   onStepBack,
   gameState,
   selectedCell,
   highlightedSet,
+  anchorSet,
+  highlightMode,
   hintInfo,
+  pencilNotes,
+  onCyclePencilNote,
   dispatch,
   onDismissDispatch,
   onSelectDocument,
+  onClearFocus,
   onSubmitVerdict,
   busy,
   resetBusy,
+  dossierSlot,
 }) {
   const surfaceRef = useRef(null);
   const docRefs = useRef({});
   const size = gameState?.size || 3;
   const colLabels = Array.from({ length: size }, (_, i) => String.fromCharCode(65 + i));
+  const cardNames = useMemo(() => (gameState?.cards || []).map((c) => c.name), [gameState?.cards]);
+  const hasFocus = Boolean(selectedCell || highlightedSet.size > 0 || hintInfo?.cell);
 
   return (
     <section
-      className={`investigation-stage ${visible ? "visible" : ""}`}
+      className={`investigation-stage ${visible ? "visible" : ""} ${dossierSlot ? "with-dossier" : ""} ${hasFocus ? "has-focus" : ""}`}
       aria-hidden={!visible}
       aria-label="Investigation Board"
     >
-      <div className="physical-board">
+      {/* Full-stage 80% dark overlay covering board, frame, and surrounding room */}
+      <div
+        className={`board-focus-backdrop ${hasFocus ? "active" : ""}`}
+        onClick={() => {
+          if (onClearFocus) onClearFocus();
+        }}
+        aria-hidden="true"
+      />
+
+      <div className={`physical-board ${hasFocus ? "has-focus" : ""}`}>
+        {/* Single Overhead Ceiling Lamp Cone shining down across the board space */}
+        <div
+          className={`board-ceiling-spotlight ${hasFocus ? "active" : ""}`}
+          aria-hidden="true"
+        >
+          <span className="ceiling-lamp-bulb" />
+        </div>
+
         {/* Contextual Paper Tabs along Wooden Frame */}
         <div className="board-ribbon">
           <div className="board-ribbon-left">
@@ -481,7 +810,7 @@ function InvestigationBoardScene({
             >
               {puzzles.map((p) => (
                 <option key={p.id} value={p.id}>
-                  [{p.category}] {p.id} ({p.size}x{p.size})
+                  {formatCaseTitle(p.id)} ({p.size}×{p.size})
                 </option>
               ))}
             </select>
@@ -542,29 +871,51 @@ function InvestigationBoardScene({
               Ledger ({gameState?.trace?.length || 0})
             </button>
 
-            {gameState && (
-              <span className={`board-tally-slip ${gameState.solved ? "solved" : ""}`}>
-                {gameState.revealed_count}/{gameState.total_count}
-              </span>
-            )}
+            {gameState &&
+              (gameState.solved ? (
+                <button
+                  type="button"
+                  className="board-tally-slip solved clickable"
+                  onClick={onOpenSolved}
+                  title="View Case Closed Summary"
+                >
+                  {gameState.revealed_count}/{gameState.total_count} ★
+                </button>
+              ) : (
+                <span className="board-tally-slip">
+                  {gameState.revealed_count}/{gameState.total_count}
+                </span>
+              ))}
           </div>
         </div>
 
         {/* Pinned Documents & SVG Evidence Strings */}
-        <div className="board-surface-wrap" ref={surfaceRef}>
+        <div
+          className={`board-surface-wrap ${hasFocus ? "has-focus" : ""}`}
+          ref={surfaceRef}
+          onClick={(e) => {
+            if (e.target === e.currentTarget && onClearFocus) onClearFocus();
+          }}
+        >
           <EvidenceConnections
             containerRef={surfaceRef}
             docRefs={docRefs}
             cards={gameState?.cards}
             selectedCell={selectedCell}
+            highlightedSet={highlightedSet}
+            hintInfo={hintInfo}
             visible={visible}
           />
 
           {gameState ? (
             <div
-              className="board-documents-grid"
+              className={`board-documents-grid size-${size}`}
               style={{
-                gridTemplateColumns: `24px repeat(${size}, minmax(0, 1fr))`,
+                gridTemplateColumns: `22px repeat(${size}, minmax(0, 1fr))`,
+                gridTemplateRows: `18px repeat(${size}, minmax(0, 1fr))`,
+              }}
+              onClick={(e) => {
+                if (e.target === e.currentTarget && onClearFocus) onClearFocus();
               }}
             >
               <div />
@@ -580,22 +931,35 @@ function InvestigationBoardScene({
                 return (
                   <React.Fragment key={rowNum}>
                     <div className="board-axis-note">{rowNum}</div>
-                    {rowCards.map((card) => (
-                      <CharacterDocument
-                        key={card.cell}
-                        card={card}
-                        isSelected={selectedCell === card.cell}
-                        isHighlighted={highlightedSet.has(card.cell)}
-                        isHintTarget={hintInfo?.stage === 2 && hintInfo?.cell === card.cell}
-                        busy={busy}
-                        docRef={(el) => {
-                          if (el) docRefs.current[card.cell] = el;
-                          else delete docRefs.current[card.cell];
-                        }}
-                        onSelectDocument={onSelectDocument}
-                        onSubmitVerdict={onSubmitVerdict}
-                      />
-                    ))}
+                    {rowCards.map((card) => {
+                      const isSel = selectedCell === card.cell;
+                      const isHigh = highlightedSet.has(card.cell);
+                      const isAnc = Boolean(anchorSet?.has(card.cell));
+                      const isHintTgt = hintInfo?.stage === 2 && hintInfo?.cell === card.cell;
+                      const isDimmed = hasFocus && !isSel && !isHigh && !isAnc && !isHintTgt;
+                      return (
+                        <CharacterDocument
+                          key={card.cell}
+                          card={card}
+                          cardNames={cardNames}
+                          isSelected={isSel}
+                          isHighlighted={isHigh}
+                          isAnchor={isAnc}
+                          highlightMode={highlightMode}
+                          isHintTarget={isHintTgt}
+                          isDimmed={isDimmed}
+                          pencilNote={pencilNotes?.[card.cell] || null}
+                          onCyclePencilNote={onCyclePencilNote}
+                          busy={busy}
+                          docRef={(el) => {
+                            if (el) docRefs.current[card.cell] = el;
+                            else delete docRefs.current[card.cell];
+                          }}
+                          onSelectDocument={onSelectDocument}
+                          onSubmitVerdict={onSubmitVerdict}
+                        />
+                      );
+                    })}
                   </React.Fragment>
                 );
               })}
@@ -620,6 +984,7 @@ function InvestigationBoardScene({
           </div>
         )}
       </div>
+      {dossierSlot}
     </section>
   );
 }
@@ -646,7 +1011,7 @@ function RoomScene({
         <h1>Griductive — Detective's Caseboard</h1>
         <p>
           {gameState
-            ? `Case "${gameState.puzzle_id}" · ${gameState.revealed_count}/${gameState.total_count} unsealed · Click the board to examine`
+            ? `Case "${formatCaseTitle(gameState.puzzle_id)}" · ${gameState.revealed_count}/${gameState.total_count} unsealed · Click the board to examine`
             : "Opening detective's office..."}
         </p>
       </div>
@@ -1410,8 +1775,33 @@ function App() {
   const [selectedCell, setSelectedCell] = useState(null);
   const [openDossierCell, setOpenDossierCell] = useState(null);
   const [hintInfo, setHintInfo] = useState(null);
+  const [pencilNotes, setPencilNotes] = useState({});
   const [dispatch, setDispatch] = useState(null);
+
+  const handleSetPencilNote = useCallback((cell, note) => {
+    sfx("click");
+    setPencilNotes((prev) => {
+      const next = { ...prev };
+      if (!note) delete next[cell];
+      else next[cell] = note;
+      return next;
+    });
+  }, []);
+
+  const handleCyclePencilNote = useCallback((cell) => {
+    sfx("click");
+    setPencilNotes((prev) => {
+      const cur = prev[cell] || null;
+      const idx = PENCIL_CYCLE.indexOf(cur);
+      const nextVal = PENCIL_CYCLE[(idx + 1) % PENCIL_CYCLE.length];
+      const next = { ...prev };
+      if (!nextVal) delete next[cell];
+      else next[cell] = nextVal;
+      return next;
+    });
+  }, []);
   const [showLedger, setShowLedger] = useState(false);
+  const [showSolvedModal, setShowSolvedModal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resetBusy, setResetBusy] = useState(false);
   const [briefingPhase, setBriefingPhase] = useState("OFF"); // OFF | LIGHTS_OFF | PLAYING | EXPLORING | ENDING
@@ -1457,17 +1847,21 @@ function App() {
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "Escape") return;
-      if (showLedger) {
+      if (showSolvedModal) {
+        setShowSolvedModal(false);
+      } else if (showLedger) {
         setShowLedger(false);
-      } else if (openDossierCell) {
+      } else if (openDossierCell || selectedCell || hintInfo) {
         setOpenDossierCell(null);
+        setSelectedCell(null);
+        setHintInfo(null);
       } else if (viewState === "BOARD") {
         returnToRoomView();
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [showLedger, openDossierCell, viewState, returnToRoomView]);
+  }, [showSolvedModal, showLedger, openDossierCell, selectedCell, hintInfo, viewState, returnToRoomView]);
 
   /* ---------- sound effects driven by state changes ---------- */
   const prevViewRef = useRef(viewState);
@@ -1506,9 +1900,24 @@ function App() {
     if (!gameState) return;
     const key = `${gameState.puzzle_id}:${gameState.solved}`;
     const wasUnsolvedSameCase = prevSolvedRef.current === `${gameState.puzzle_id}:false`;
-    if (gameState.solved && wasUnsolvedSameCase) sfx("solved", 0.3);
+    if (gameState.solved && wasUnsolvedSameCase) {
+      sfx("solved", 0.3);
+      setSelectedCell(null);
+      setOpenDossierCell(null);
+      setHintInfo(null);
+      setShowSolvedModal(true);
+    } else if (!gameState.solved) {
+      setShowSolvedModal(false);
+    }
     prevSolvedRef.current = key;
   }, [gameState]);
+
+  const nextPuzzle = useMemo(() => {
+    if (!gameState || !puzzles.length) return null;
+    const idx = puzzles.findIndex((p) => p.id === gameState.puzzle_id);
+    if (idx < 0 || idx + 1 >= puzzles.length) return null;
+    return puzzles[idx + 1];
+  }, [gameState, puzzles]);
 
   const selectedClueCard = useMemo(() => {
     if (!gameState || !selectedCell) return null;
@@ -1520,19 +1929,51 @@ function App() {
     return gameState.cards.find((c) => c.cell === openDossierCell) || null;
   }, [gameState, openDossierCell]);
 
-  const highlightedSet = useMemo(() => {
+  const { highlightedSet, anchorSet, highlightMode } = useMemo(() => {
     const set = new Set();
+    const anchors = new Set();
+    let mode = "target";
     if (hintInfo?.stage === 1 && hintInfo?.supporting_clue_cells?.length) {
       hintInfo.supporting_clue_cells.forEach((cid) => set.add(cid));
-    } else if (hintInfo?.stage === 2 && hintInfo?.highlighted_cells) {
-      hintInfo.highlighted_cells.forEach((cid) => set.add(cid));
-    } else if (selectedClueCard?.revealed && selectedClueCard?.clue?.highlighted_cells) {
-      selectedClueCard.clue.highlighted_cells.forEach((cid) => set.add(cid));
+      mode = "reference";
+    } else if (hintInfo?.stage === 2) {
+      const sup = hintInfo.supporting_clue_cells?.length
+        ? hintInfo.supporting_clue_cells
+        : hintInfo.relevant_clue_cell
+        ? [hintInfo.relevant_clue_cell]
+        : [];
+      sup.forEach((cid) => {
+        if (cid !== hintInfo.cell) set.add(cid);
+      });
+      mode = "reference";
+    } else if (selectedClueCard && gameState) {
+      if (selectedClueCard.revealed && selectedClueCard.clue?.highlighted_cells) {
+        // Revealed card: focus ONLY on the region this clue describes + its spatial anchors
+        selectedClueCard.clue.highlighted_cells.forEach((cid) => {
+          if (cid !== selectedClueCard.cell) set.add(cid);
+        });
+        (selectedClueCard.clue.anchor_cells || []).forEach((cid) => {
+          if (cid !== selectedClueCard.cell && !set.has(cid)) anchors.add(cid);
+        });
+        mode = "target";
+      } else {
+        // Sealed card: highlight revealed clues that mention this suspect
+        mode = "reference";
+        for (const c of gameState.cards) {
+          if (
+            c.revealed &&
+            c.cell !== selectedClueCard.cell &&
+            c.clue?.highlighted_cells?.includes(selectedClueCard.cell)
+          ) {
+            set.add(c.cell);
+          }
+        }
+      }
     } else if (hintInfo?.highlighted_cells) {
       hintInfo.highlighted_cells.forEach((cid) => set.add(cid));
     }
-    return set;
-  }, [selectedClueCard, hintInfo]);
+    return { highlightedSet: set, anchorSet: anchors, highlightMode: mode };
+  }, [selectedClueCard, hintInfo, gameState]);
 
   const handleLoadPuzzle = async (puzzleId) => {
     if (!puzzleId) return;
@@ -1550,10 +1991,11 @@ function App() {
       setSelectedCell(null);
       setOpenDossierCell(null);
       setHintInfo(null);
+      setPencilNotes({});
       setDispatch({
         type: "ACCEPTED",
         title: "CASE OPENED",
-        message: `Loaded dossier "${state.puzzle_id}" (${state.size}x${state.size}).`,
+        message: `Loaded "${formatCaseTitle(state.puzzle_id)}" (${state.size}×${state.size}).`,
       });
     } catch (err) {
       if (requestId !== requestIdRef.current) return;
@@ -1577,6 +2019,7 @@ function App() {
       setSelectedCell(null);
       setOpenDossierCell(null);
       setHintInfo(null);
+      setPencilNotes({});
       setDispatch({
         type: "NOT_PROVABLE",
         title: "BOARD RESET",
@@ -1606,6 +2049,13 @@ function App() {
       setHintInfo(null);
       if (res.newly_revealed) {
         setSelectedCell(res.newly_revealed);
+        setOpenDossierCell(res.newly_revealed);
+        setPencilNotes((prev) => {
+          if (!prev[res.newly_revealed]) return prev;
+          const next = { ...prev };
+          delete next[res.newly_revealed];
+          return next;
+        });
       }
       setDispatch({
         type: res.outcome,
@@ -1628,11 +2078,18 @@ function App() {
     if (hintInfo && hintInfo.status === "FOUND" && hintInfo.stage === 1) {
       const stage2 = { ...hintInfo, stage: 2 };
       setHintInfo(stage2);
-      setSelectedCell(stage2.cell || stage2.relevant_clue_cell || null);
+      const nextTarget = stage2.cell || stage2.relevant_clue_cell || null;
+      setSelectedCell(nextTarget);
+      if (nextTarget) setOpenDossierCell(nextTarget);
+      const targetCard = gameState?.cards?.find((c) => c.cell === stage2.cell);
+      const targetLabel = targetCard ? `${targetCard.name} (#${stage2.cell})` : `#${stage2.cell}`;
+      const supportText = stage2.supporting_clue_cells?.length
+        ? ` using the statement(s) at ${stage2.supporting_clue_cells.join(", ")}`
+        : "";
       setDispatch({
         type: "ACCEPTED",
         title: "ORACLE LEAD (2/2)",
-        message: stage2.message,
+        message: `Suspect ${targetLabel} is now logically forced${supportText} — deduce whether they are Criminal or Innocent!`,
       });
       if (viewState === "ROOM") enterBoardView();
       return;
@@ -1645,8 +2102,8 @@ function App() {
       if (requestId !== requestIdRef.current) return;
       const isFound = hint.status === "FOUND";
       const stage1Msg = hint.clue_hint_message
-        ? `${hint.clue_hint_message} (Click Oracle Hint again to reveal suspect.)`
-        : hint.message;
+        ? `${cleanClueTextIds(hint.clue_hint_message)} (Click Oracle Hint again to reveal suspect.)`
+        : cleanClueTextIds(hint.message);
       const stagedHint = { ...hint, stage: isFound ? 1 : 2 };
       setHintInfo(stagedHint);
       setSelectedCell(hint.relevant_clue_cell || (isFound ? null : hint.cell) || null);
@@ -1694,9 +2151,20 @@ function App() {
 
   const handleSelectDocument = (cell) => {
     setHintInfo(null);
-    setSelectedCell(cell);
-    setOpenDossierCell(cell);
+    if (selectedCell === cell && openDossierCell === cell) {
+      setSelectedCell(null);
+      setOpenDossierCell(null);
+    } else {
+      setSelectedCell(cell);
+      setOpenDossierCell(cell);
+    }
   };
+
+  const handleClearFocus = useCallback(() => {
+    setSelectedCell(null);
+    setOpenDossierCell(null);
+    setHintInfo(null);
+  }, []);
 
   // After trying an object, continue the briefing once the player is back in the office.
   useEffect(() => {
@@ -1777,33 +2245,66 @@ function App() {
         onStep={() => handleProofAction("/api/game/step", {})}
         onAutoSolve={handleAutoSolve}
         onOpenLedger={() => setShowLedger(true)}
+        onOpenSolved={() => setShowSolvedModal(true)}
         onStepBack={returnToRoomView}
         gameState={gameState}
         selectedCell={selectedCell}
         highlightedSet={highlightedSet}
+        anchorSet={anchorSet}
+        highlightMode={highlightMode}
         hintInfo={hintInfo}
+        pencilNotes={pencilNotes}
+        onCyclePencilNote={handleCyclePencilNote}
         dispatch={dispatch}
         onDismissDispatch={() => {
           sfx("click");
           setDispatch(null);
         }}
         onSelectDocument={handleSelectDocument}
+        onClearFocus={handleClearFocus}
         onSubmitVerdict={handleVerdict}
         busy={busy}
         resetBusy={resetBusy}
+        dossierSlot={
+          viewState === "BOARD" && openDossierCard ? (
+            <CharacterDossier
+              card={openDossierCard}
+              allCards={gameState?.cards}
+              pencilNote={pencilNotes[openDossierCard.cell] || null}
+              onSetPencilNote={handleSetPencilNote}
+              busy={busy}
+              onClose={handleClearFocus}
+              onSelectCell={(cid) => {
+                setSelectedCell(cid);
+                setOpenDossierCell(cid);
+              }}
+              onSubmitVerdict={handleVerdict}
+            />
+          ) : null
+        }
       />
 
-      {viewState === "BOARD" && openDossierCard && (
-        <CharacterDossier
-          card={openDossierCard}
-          allCards={gameState?.cards}
-          busy={busy}
-          onClose={() => setOpenDossierCell(null)}
-          onSelectCell={(cid) => {
-            setSelectedCell(cid);
-            setOpenDossierCell(cid);
+      {showSolvedModal && gameState?.solved && (
+        <CaseSolvedModal
+          gameState={gameState}
+          nextPuzzle={nextPuzzle}
+          onNextCase={(nextId) => {
+            setShowSolvedModal(false);
+            setSelectedPuzzleId(nextId);
+            handleLoadPuzzle(nextId);
           }}
-          onSubmitVerdict={handleVerdict}
+          onReviewBoard={() => {
+            sfx("click");
+            setShowSolvedModal(false);
+          }}
+          onOpenLedger={() => {
+            setShowSolvedModal(false);
+            setShowLedger(true);
+          }}
+          onReplay={() => {
+            setShowSolvedModal(false);
+            handleRestart();
+          }}
         />
       )}
 
@@ -1824,11 +2325,10 @@ function App() {
                   <div>
                     <strong>
                       #{item.step} {item.cell} → {item.verdict}
-                    </strong>{" "}
-                    (Revealed: {item.newly_revealed_clue})
+                    </strong>
                   </div>
                   <div style={{ color: "var(--muted-olive)", fontSize: "0.73rem" }}>
-                    Active clues: {item.active_clues.join(", ")}
+                    Active clues: {formatActiveClueCells(item.active_clues)}
                   </div>
                 </div>
               ))

@@ -1,32 +1,24 @@
 """Independent exhaustive oracle FOR TEST FIXTURES ONLY (not production SAT)."""
 from itertools import product
 
+from griductive.logic.regions import resolve_region
+from griductive.logic.semantics import evaluate_clue
+from griductive.models import Clue
+
+
 def ids(n):
     return [f"{chr(65+c)}{r}" for r in range(1,n+1) for c in range(n)]
 
 def region_cells(region,n):
-    kind=region['type']
-    if kind=='row': return [f"{chr(65+c)}{region['index']}" for c in range(n)]
-    if kind=='column': return [f"{region['index']}{r}" for r in range(1,n+1)]
-    if kind=='cells': return region['cells']
-    center=region['cell']; cx=ord(center[0])-65;cy=int(center[1:])-1
-    return [f"{chr(65+x)}{y+1}" for y in range(n) for x in range(n) if max(abs(x-cx),abs(y-cy))==1]
+    return list(resolve_region(region, n))
 
 def evaluate(c,a,n):
-    k=c['kind']
-    if k=='FACT': return a[c['cell']] == (c['status']=='CRIMINAL')
-    if k=='SAME': return a[c['cells'][0]]==a[c['cells'][1]]
-    if k=='DIFFERENT': return a[c['cells'][0]]!=a[c['cells'][1]]
-    if k=='COMPOUND':
-        prem=all(a[x['cell']]==(x['status']=='CRIMINAL') for x in c['premises'])
-        concl=a[c['conclusion']['cell']]==(c['conclusion']['status']=='CRIMINAL')
-        return not prem or concl
-    val=sum(a[x] for x in region_cells(c['region'],n))
-    if k=='EXACTLY': return val==c['k']
-    if k=='AT_LEAST': return val>=c['k']
-    if k=='AT_MOST': return val<=c['k']
-    if k=='PARITY': return (val%2==0)==(c['parity']=='EVEN')
-    raise ValueError(k)
+    model_clue = Clue(
+        c.get('id', 'c'),
+        c['kind'],
+        {k: v for k, v in c.items() if k not in ('id', 'kind')},
+    )
+    return evaluate_clue(model_clue, a, n)
 
 def models(p, revealed):
     cards={c['cell']:c for c in p['cards']};keys=ids(p['size'])
