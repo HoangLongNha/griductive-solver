@@ -1,6 +1,7 @@
 """Shared clue text formatting for the React view — natural Knotwise detective prose."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from griductive.logic.regions import resolve_region
@@ -12,8 +13,8 @@ def _person_label(cid: str, names: dict[CellId, str] | None) -> str:
     return name if name else cid
 
 
-def _region_anchors(region: dict[str, Any] | None) -> list[CellId]:
-    if not isinstance(region, dict):
+def _region_anchors(region: Mapping[str, Any] | None) -> list[CellId]:
+    if not isinstance(region, Mapping):
         return []
     rtype = region.get("type")
     if rtype in ("neighbors", "above", "below", "left_of", "right_of"):
@@ -31,7 +32,7 @@ def _region_anchors(region: dict[str, Any] | None) -> list[CellId]:
     return []
 
 
-def extract_anchor_cells(clue: dict[str, Any]) -> list[CellId]:
+def extract_anchor_cells(clue: Mapping[str, Any]) -> list[CellId]:
     """Return spatial anchor cells referenced as landmarks by a clue (e.g. 'Alice' in Alice's neighbors)."""
     out: list[CellId] = []
     for key in ("region", "region_a", "region_b"):

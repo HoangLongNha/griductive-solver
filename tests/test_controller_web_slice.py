@@ -8,6 +8,35 @@ from griductive.web.controller import WebController
 from test_web_ui import _request
 
 
+def test_real_controller_preserves_public_spatial_anchors():
+    root = Path(__file__).resolve().parents[1]
+    controller = WebController(root / 'puzzles')
+    state = controller.load_puzzle('mixed_counting_4x4')
+    a1 = next(card for card in state['cards'] if card['cell'] == 'A1')
+    assert a1['clue']['anchor_cells'] == ['A1', 'D1']
+    assert all(card['clue'] is None for card in state['cards'] if not card['revealed'])
+
+
+def test_real_controller_preserves_anchors_in_frozen_intersection(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    raw = json.loads((root / 'puzzles/3x3/tutorial_3x3.json').read_text(encoding='utf-8'))
+    # The intersection is B1, which is Innocent in the real tutorial solution.
+    raw['cards'][0]['clue'] = {
+        'id': 'c-A1', 'kind': 'EXACTLY', 'k': 0,
+        'region': {'type': 'intersection', 'regions': [
+            {'type': 'neighbors', 'cell': 'B2'},
+            {'type': 'above', 'cell': 'B3'},
+            {'type': 'neighbors', 'cell': 'B2'},
+        ]},
+    }
+    (tmp_path / 'tutorial.json').write_text(json.dumps(raw), encoding='utf-8')
+    controller = WebController(tmp_path)
+    state = controller.get_public_state_dict()
+    a1 = next(card for card in state['cards'] if card['cell'] == 'A1')
+    assert a1['clue']['anchor_cells'] == ['B2', 'B3']
+    assert a1['clue']['highlighted_cells'] == ('B1',)
+
+
 def test_diagnostic_puzzles_are_selectable_and_reach_stuck():
     root = Path(__file__).resolve().parents[1]
     controller = WebController(root / 'puzzles')
